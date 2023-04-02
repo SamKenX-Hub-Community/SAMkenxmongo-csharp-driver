@@ -16,7 +16,7 @@
 using System;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.TestHelpers;
 using Xunit;
@@ -24,6 +24,7 @@ using Xunit.Abstractions;
 
 namespace MongoDB.Driver.Tests
 {
+    [Trait("Category", "OCSP")]
     public class OcspIntegrationTests : LoggableTestClass
     {
         private static readonly string _shouldSucceedEnvironmentVariableName = "OCSP_TLS_SHOULD_SUCCEED";
@@ -46,7 +47,7 @@ namespace MongoDB.Driver.Tests
          * When testing on Windows, the certificate should be added to the trust store prior to each run in order to
          * reduce the chances of Windows pruning the certificate from the trust store prior to the test running.
          */
-        [SkippableFact]
+        [Fact]
         public void MongoClientShouldRespectCertificateStatusAndTlsInsecure()
         {
             /* We cannot call RequireServer.Check() because this would result in a connection being made to the mongod
@@ -70,7 +71,11 @@ namespace MongoDB.Driver.Tests
                 secureClientException.Should().BeOfType<TimeoutException>();
                 var message = secureClientException.Message;
                 // The exception will lack this message if the heartbeat doesn't fire
+#if NET6_0_OR_GREATER
+                message.Should().Contain("The remote certificate is invalid because of errors in the certificate chain");
+#else
                 message.Should().Contain("The remote certificate is invalid according to the validation procedure.");
+#endif
             }
 
             void Ping(bool tlsInsecure)
@@ -78,10 +83,12 @@ namespace MongoDB.Driver.Tests
                 using (var client = CreateDisposableMongoClient(tlsInsecure))
                 {
                     client.GetDatabase("admin").RunCommand<BsonDocument>(new BsonDocument("ping", 1));
+#pragma warning disable CS0618 // Type or member is obsolete
                     if (client.Settings.SdamLogFilename != null)
                     { // Log file needs a bit of time to be written before we dispose the client
                         System.Threading.Thread.Sleep(2000);
                     }
+#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
         }
@@ -104,6 +111,8 @@ namespace MongoDB.Driver.Tests
              * ServerSelectionTimeout that does include a certificate revocation status error message. */
             settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5 * 2); // must be > 5s
             // settings.SdamLogFilename = @"C:\temp\sdam" + $"{tlsInsecure}.log";
+
+            settings.LoggingSettings = LoggingSettings;
 
             return new DisposableMongoClient(new MongoClient(settings), CreateLogger<DisposableMongoClient>());
         }

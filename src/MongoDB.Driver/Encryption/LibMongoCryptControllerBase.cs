@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -23,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
+using MongoDB.Driver.Core.Authentication.External;
 using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Misc;
@@ -39,23 +41,28 @@ namespace MongoDB.Driver.Encryption
         protected readonly CollectionNamespace _keyVaultNamespace;
 
         // private fields
-        private readonly IReadOnlyDictionary<string, SslSettings> _tlsOptions;
+        private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, object>> _kmsProviders;
         private readonly IStreamFactory _networkStreamFactory;
+        private readonly IReadOnlyDictionary<string, SslSettings> _tlsOptions;
 
         // constructors
         protected LibMongoCryptControllerBase(
              CryptClient cryptClient,
              IMongoClient keyVaultClient,
-             CollectionNamespace keyVaultNamespace,
-             IReadOnlyDictionary<string, SslSettings> tlsOptions)
+             IEncryptionOptions encryptionOptions)
         {
-            _cryptClient = cryptClient;
-            _keyVaultClient = keyVaultClient; // _keyVaultClient might not be fully constructed at this point, don't call any instance methods on it yet
-            _keyVaultNamespace = keyVaultNamespace;
+            Ensure.IsNotNull(encryptionOptions, nameof(encryptionOptions));
+            _cryptClient = Ensure.IsNotNull(cryptClient, nameof(cryptClient));
+            _keyVaultClient = Ensure.IsNotNull(keyVaultClient, nameof(keyVaultClient)); // _keyVaultClient might not be fully constructed at this point, don't call any instance methods on it yet
+            _keyVaultNamespace = Ensure.IsNotNull(encryptionOptions.KeyVaultNamespace, nameof(encryptionOptions.KeyVaultNamespace));
             _keyVaultCollection = new Lazy<IMongoCollection<BsonDocument>>(GetKeyVaultCollection); // delay use _keyVaultClient
+            _kmsProviders = Ensure.IsNotNull(encryptionOptions.KmsProviders, nameof(encryptionOptions.KmsProviders));
             _networkStreamFactory = new NetworkStreamFactory();
-            _tlsOptions = Ensure.IsNotNull(tlsOptions, nameof(tlsOptions));
+            _tlsOptions = Ensure.IsNotNull(encryptionOptions.TlsOptions, nameof(encryptionOptions.TlsOptions));
         }
+
+        // public properties
+        public IMongoClient KeyVaultClient => _keyVaultClient;
 
         // protected methods
         protected void FeedResult(CryptContext context, BsonDocument document)
@@ -99,6 +106,9 @@ namespace MongoDB.Driver.Encryption
                 case CryptContext.StateCode.MONGOCRYPT_CTX_NEED_MONGO_KEYS:
                     ProcessNeedMongoKeysState(context, cancellationToken);
                     break;
+                case CryptContext.StateCode.MONGOCRYPT_CTX_NEED_KMS_CREDENTIALS:
+                    ProcessNeedKmsCredentials(context, cancellationToken);
+                    break;
                 default:
                     throw new InvalidOperationException($"Unexpected context state: {context.State}.");
             }
@@ -113,6 +123,9 @@ namespace MongoDB.Driver.Encryption
                     break;
                 case CryptContext.StateCode.MONGOCRYPT_CTX_NEED_MONGO_KEYS:
                     await ProcessNeedMongoKeysStateAsync(context, cancellationToken).ConfigureAwait(false);
+                    break;
+                case CryptContext.StateCode.MONGOCRYPT_CTX_NEED_KMS_CREDENTIALS:
+                    await ProcessNeedKmsCredentialsAsync(context, cancellationToken).ConfigureAwait(false);
                     break;
                 default:
                     throw new InvalidOperationException($"Unexpected context state: {context.State}.");
@@ -153,6 +166,23 @@ namespace MongoDB.Driver.Encryption
             return result;
         }
 
+        protected byte[] ToBsonIfNotNull(BsonValue value)
+        {
+            if (value != null)
+            {
+                var writerSettings = BsonBinaryWriterSettings.Defaults.Clone();
+#pragma warning disable 618
+                if (BsonDefaults.GuidRepresentationMode == GuidRepresentationMode.V2)
+                {
+                    writerSettings.GuidRepresentation = GuidRepresentation.Unspecified;
+                }
+#pragma warning restore 618
+                return value.ToBson(writerSettings: writerSettings);
+            }
+
+            return null;
+        }
+
         // private methods
         private IMongoCollection<BsonDocument> GetKeyVaultCollection()
         {
@@ -163,6 +193,12 @@ namespace MongoDB.Driver.Encryption
                 ReadConcern = ReadConcern.Majority,
                 WriteConcern = WriteConcern.WMajority
             };
+#pragma warning disable CS0618 // Type or member is obsolete
+            if (BsonDefaults.GuidRepresentationMode == GuidRepresentationMode.V2)
+            {
+                collectionSettings.GuidRepresentation = GuidRepresentation.Unspecified;
+            }
+#pragma warning restore CS0618 // Type or member is obsolete
             return keyVaultDatabase.GetCollection<BsonDocument>(_keyVaultNamespace.CollectionName, collectionSettings);
         }
 
@@ -223,6 +259,32 @@ namespace MongoDB.Driver.Encryption
             var cursor = _keyVaultCollection.Value.FindSync(filter, cancellationToken: cancellationToken);
             var results = cursor.ToList(cancellationToken);
             FeedResults(context, results);
+        }
+
+        private void ProcessNeedKmsCredentials(CryptContext context, CancellationToken cancellationToken) =>
+            // inner machinery in the below method doesn't support sync approach
+            ProcessNeedKmsCredentialsAsync(context, cancellationToken).GetAwaiter().GetResult();
+
+        private async Task ProcessNeedKmsCredentialsAsync(CryptContext context, CancellationToken cancellationToken)
+        {
+            var newCredentialsList = new List<BsonElement>();
+            foreach (var kmsProvider in _kmsProviders.Where(k => k.Value.Count == 0))
+            {
+                IExternalCredentials credentialsBody = kmsProvider.Key switch
+                {
+                    "aws"  => await ExternalCredentialsAuthenticators.Instance.Aws.CreateCredentialsFromExternalSourceAsync(cancellationToken).ConfigureAwait(false),
+                    "azure" => await ExternalCredentialsAuthenticators.Instance.Azure.CreateCredentialsFromExternalSourceAsync(cancellationToken).ConfigureAwait(false),
+                    "gcp" => await ExternalCredentialsAuthenticators.Instance.Gcp.CreateCredentialsFromExternalSourceAsync(cancellationToken).ConfigureAwait(false),
+                    _ => null,
+                };
+
+                if (credentialsBody != null)
+                {
+                    newCredentialsList.Add(new BsonElement(kmsProvider.Key, credentialsBody.GetKmsCredentials()));
+                }
+            }
+
+            context.SetCredentials(ToBsonIfNotNull(new BsonDocument(newCredentialsList)));
         }
 
         private async Task ProcessNeedMongoKeysStateAsync(CryptContext context, CancellationToken cancellationToken)

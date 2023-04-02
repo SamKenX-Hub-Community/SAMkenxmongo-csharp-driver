@@ -38,6 +38,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
                 // normally an ExpressionNotSupported should have been thrown before reaching here
                 throw new ArgumentException($"Field must be represented as a string for regex filter operations: {field.Path}", nameof(field));
             }
+
+            if (_field.Path == "@<current>")
+            {
+                throw new ExpressionNotSupportedException("Field path cannot be \"@<current>\" in AstFieldOperationFilter.");
+            }
         }
 
         public new AstFilterField Field => _field;
@@ -59,31 +64,6 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
             if (fieldPath.StartsWith("@<elem>."))
             {
                 fieldPath = fieldPath.Substring(8);
-            }
-
-            if (_operation is AstComparisonFilterOperation comparisonOperation &&
-                comparisonOperation.Operator == AstComparisonFilterOperator.Eq &&
-                comparisonOperation.Value.BsonType != BsonType.RegularExpression)
-            {
-                return new BsonDocument(fieldPath, comparisonOperation.Value); // implied $eq
-            }
-
-            if (
-                _operation is AstElemMatchFilterOperation elemMatchOperation &&
-                elemMatchOperation.Filter is AstFieldOperationFilter fieldOperationFilter &&
-                fieldOperationFilter.Field.Path == "@<elem>")
-            {
-                if (fieldOperationFilter.Operation is AstComparisonFilterOperation elemMatchComparisonOperation &&
-                    elemMatchComparisonOperation.Operator == AstComparisonFilterOperator.Eq &&
-                    elemMatchComparisonOperation.Value.BsonType != BsonType.RegularExpression)
-                {
-                    return new BsonDocument(fieldPath, elemMatchComparisonOperation.Value); // implied $elemMatch with $eq
-                }
-
-                if (fieldOperationFilter.Operation is AstRegexFilterOperation elemMatchRegexOperation)
-                {
-                    return new BsonDocument(fieldPath, elemMatchRegexOperation.Render()); // implied $elemMatch with $regex
-                }
             }
 
             return new BsonDocument(fieldPath, _operation.Render());

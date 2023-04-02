@@ -20,7 +20,7 @@ using System.Reflection;
 using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core;
 using MongoDB.Driver.Core.Bindings;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
@@ -220,7 +220,7 @@ namespace MongoDB.Driver.GridFS.Tests
 
         [Theory]
         [ParameterAttributeData]
-        public void Flush_should_throw(
+        public void Flush_should_not_throw(
             [Values(false, true)] bool async)
         {
             var bucket = CreateBucket(128);
@@ -238,7 +238,7 @@ namespace MongoDB.Driver.GridFS.Tests
                 action = () => subject.Flush();
             }
 
-            action.ShouldThrow<NotSupportedException>();
+            action.ShouldNotThrow<NotSupportedException>();
         }
 
         [Fact]

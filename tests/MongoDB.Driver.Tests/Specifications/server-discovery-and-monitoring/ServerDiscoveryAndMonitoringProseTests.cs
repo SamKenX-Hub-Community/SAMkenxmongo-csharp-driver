@@ -35,9 +35,10 @@ using Xunit;
 
 namespace MongoDB.Driver.Tests.Specifications.server_discovery_and_monitoring
 {
+    [Trait("Category", "SDAM")]
     public class ServerDiscoveryAndMonitoringProseTests
     {
-        [SkippableFact]
+        [Fact]
         public void Heartbeat_should_work_as_expected()
         {
             var heartbeatSuceededTimestamps = new ConcurrentQueue<DateTime>();
@@ -76,7 +77,7 @@ namespace MongoDB.Driver.Tests.Specifications.server_discovery_and_monitoring
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public void Monitor_sleep_at_least_minHeartbeatFreqencyMS_between_checks()
         {
             var minVersion = new SemanticVersion(4, 9, 0, "");
@@ -120,7 +121,7 @@ namespace MongoDB.Driver.Tests.Specifications.server_discovery_and_monitoring
             sw.ElapsedMilliseconds.Should().BeInRange(2000, 3500);
         }
 
-        [SkippableFact]
+        [Fact]
         public void RoundTimeTrip_test()
         {
             RequireServer.Check().Supports(Feature.StreamingHello);
@@ -172,14 +173,17 @@ namespace MongoDB.Driver.Tests.Specifications.server_discovery_and_monitoring
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public void ConnectionPool_cleared_on_failed_hello()
         {
             var minVersion = new SemanticVersion(4, 9, 0, "");
             RequireServer.Check().VersionGreaterThanOrEqualTo(minVersion);
 
             const string appName = "SDAMPoolManagementTest";
-            var heartbeatInterval = TimeSpan.FromMilliseconds(100);
+            // Using a 100ms heartbeatInterval can result in sporadic failures of this test if the RTT thread
+            // consumes both of the configured failpoints before the monitoring thread can run.
+            // Increasing the heartbeatInterval to 200ms avoids this race condition.
+            var heartbeatInterval = TimeSpan.FromMilliseconds(200);
             var eventsWaitTimeout = TimeSpan.FromMilliseconds(5000);
 
             var failPointCommand = BsonDocument.Parse(
@@ -243,14 +247,6 @@ namespace MongoDB.Driver.Tests.Specifications.server_discovery_and_monitoring
             clonedClientSettings.ClusterConfigurator = builder => builder.Subscribe(eventCapturer);
 
             return DriverTestConfiguration.CreateDisposableClient(clonedClientSettings);
-        }
-    }
-
-    internal static class ServerReflector
-    {
-        public static IServerMonitor _monitor(this IServer server)
-        {
-            return (IServerMonitor)Reflector.GetFieldValue(server, nameof(_monitor));
         }
     }
 

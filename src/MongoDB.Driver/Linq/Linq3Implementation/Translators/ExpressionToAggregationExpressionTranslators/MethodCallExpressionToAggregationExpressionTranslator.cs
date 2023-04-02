@@ -35,8 +35,10 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 case "CompareTo": return CompareToMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Concat": return ConcatMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Contains": return ContainsMethodToAggregationExpressionTranslator.Translate(context, expression);
+                case "ContainsKey": return ContainsKeyMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "CovariancePopulation": return CovariancePopulationMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "CovarianceSample": return CovarianceSampleMethodToAggregationExpressionTranslator.Translate(context, expression);
+                case "Create": return CreateMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "DefaultIfEmpty": return DefaultIfEmptyMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "DenseRank": return DenseRankMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Derivative": return DerivativeMethodToAggregationExpressionTranslator.Translate(context, expression);
@@ -53,6 +55,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 case "Intersect": return IntersectMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "IsNullOrEmpty": return IsNullOrEmptyMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "IsSubsetOf": return IsSubsetOfMethodToAggregationExpressionTranslator.Translate(context, expression);
+                case "Locf": return LocfMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Parse": return ParseMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Pow": return PowMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Push": return PushMethodToAggregationExpressionTranslator.Translate(context, expression);
@@ -72,9 +75,27 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 case "ToList": return ToListMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "ToString": return ToStringMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Truncate": return TruncateMethodToAggregationExpressionTranslator.Translate(context, expression);
+                case "Week": return WeekMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Where": return WhereMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Union": return UnionMethodToAggregationExpressionTranslator.Translate(context, expression);
                 case "Zip": return ZipMethodToAggregationExpressionTranslator.Translate(context, expression);
+
+                case "Acos":
+                case "Acosh":
+                case "Asin":
+                case "Asinh":
+                case "Atan":
+                case "Atan2":
+                case "Atanh":
+                case "Cos":
+                case "Cosh":
+                case "DegreesToRadians":
+                case "RadiansToDegrees":
+                case "Sin":
+                case "Sinh":
+                case "Tan":
+                case "Tanh":
+                    return TrigMethodToAggregationExpressionTranslator.Translate(context, expression);
 
                 case "AddDays":
                 case "AddHours":
@@ -87,6 +108,16 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 case "AddWeeks":
                 case "AddYears":
                     return DateTimeAddOrSubtractMethodToAggregationExpressionTranslator.Translate(context, expression);
+
+                case "Bottom":
+                case "BottomN":
+                case "FirstN":
+                case "LastN":
+                case "MaxN":
+                case "MinN":
+                case "Top":
+                case "TopN":
+                    return PickMethodToAggregationExpressionTranslator.Translate(context, expression);
 
                 case "Count":
                 case "LongCount":
@@ -110,6 +141,12 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 case "Max":
                 case "Min":
                     return MaxOrMinMethodToAggregationExpressionTranslator.Translate(context, expression);
+
+                case "OrderBy":
+                case "OrderByDescending":
+                case "ThenBy":
+                case "ThenByDescending":
+                    return OrderByMethodToAggregationExpressionTranslator.Translate(context, expression);
 
                 case "StandardDeviationPopulation":
                 case "StandardDeviationSample":

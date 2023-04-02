@@ -20,10 +20,12 @@ using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Linq;
 using Moq;
 using Xunit;
+using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
+using MongoDB.Driver.Core.Misc;
 
 namespace MongoDB.Driver.Tests
 {
@@ -92,7 +94,8 @@ namespace MongoDB.Driver.Tests
                 Skip = 3
             };
             var subject = CreateSubject(session: session, filter: filter, options: findOptions);
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             Predicate<CountOptions> matchesExpectedOptions = countOptions =>
                 countOptions.Collation.Equals(findOptions.Collation) &&
@@ -179,7 +182,8 @@ namespace MongoDB.Driver.Tests
                 Skip = 3
             };
             var subject = CreateSubject(session: session, filter: filter, options: findOptions);
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             Predicate<CountOptions> matchesExpectedOptions = countOptions =>
                 countOptions.Collation.Equals(findOptions.Collation) &&
@@ -248,7 +252,8 @@ namespace MongoDB.Driver.Tests
             var filter = Builders<Person>.Filter.Eq("_id", 1);
             var options = new FindOptions<Person, Person>();
             var subject = CreateSubject(session, filter, options);
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (async)
             {
@@ -300,10 +305,17 @@ namespace MongoDB.Driver.Tests
             }
         }
 
-        [Fact]
-        public void ToString_should_return_the_correct_string()
+        [Theory]
+        [ParameterAttributeData]
+        public void ToString_should_return_the_correct_string(
+            [Values(LinqProvider.V2, LinqProvider.V3)] LinqProvider linqProvider)
         {
-            var subject = CreateSubject();
+            if (linqProvider == LinqProvider.V3)
+            {
+                RequireServer.Check().Supports(Feature.FindProjectionExpressions);
+            }
+
+            var subject = CreateSubject(linqProvider: linqProvider);
             subject.Filter = new BsonDocument("Age", 20);
             subject.Options.Collation = new Collation("en_US");
             subject.Options.Comment = "awesome";
@@ -330,8 +342,12 @@ namespace MongoDB.Driver.Tests
 
             var str = find.ToString();
 
+            var expectedProjection = linqProvider == LinqProvider.V2 ?
+                "{ \"FirstName\" : 1, \"LastName\" : 1, \"_id\" : 0 }" :
+                "{ \"_v\" : { \"$concat\" : [\"$FirstName\", \" \", \"$LastName\"] }, \"_id\" : 0 }";
+
             str.Should().Be(
-                "find({ \"Age\" : 20 }, { \"FirstName\" : 1, \"LastName\" : 1, \"_id\" : 0 })" +
+                "find({ \"Age\" : 20 }, " + expectedProjection + ")" +
                 ".collation({ \"locale\" : \"en_US\" })" +
                 ".sort({ \"LastName\" : 1, \"FirstName\" : -1 })" +
                 ".skip(2)" +
@@ -353,9 +369,9 @@ namespace MongoDB.Driver.Tests
             return usingSession ? Mock.Of<IClientSessionHandle>() : null;
         }
 
-        private IFindFluent<Person, Person> CreateSubject(IClientSessionHandle session = null, FilterDefinition<Person> filter = null, FindOptions<Person, Person> options = null)
+        private IFindFluent<Person, Person> CreateSubject(IClientSessionHandle session = null, FilterDefinition<Person> filter = null, FindOptions<Person, Person> options = null, LinqProvider linqProvider = LinqProvider.V3)
         {
-            var clientSettings = new MongoClientSettings { LinqProvider = LinqProvider.V2 };
+            var clientSettings = new MongoClientSettings { LinqProvider = linqProvider };
             var mockClient = new Mock<IMongoClient>();
             mockClient.SetupGet(c => c.Settings).Returns(clientSettings);
 

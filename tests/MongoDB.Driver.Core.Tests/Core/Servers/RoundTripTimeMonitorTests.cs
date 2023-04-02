@@ -17,17 +17,17 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Clusters;
+using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Helpers;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.Servers;
+using MongoDB.Driver.Core.TestHelpers;
 using MongoDB.Driver.Core.WireProtocol.Messages;
 using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
 using Moq;
@@ -43,7 +43,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
         [Fact]
         public void Constructor_should_throw_connection_endpoint_is_null()
         {
-            var exception = Record.Exception(() => new RoundTripTimeMonitor(Mock.Of<IConnectionFactory>(), __serverId, endpoint: null, TimeSpan.Zero, serverApi: null));
+            var exception = Record.Exception(() => new RoundTripTimeMonitor(Mock.Of<IConnectionFactory>(), __serverId, endpoint: null, TimeSpan.Zero, serverApi: null, logger: null));
             var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
             e.ParamName.Should().Be("endpoint");
         }
@@ -51,7 +51,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
         [Fact]
         public void Constructor_should_throw_connection_factory_is_null()
         {
-            var exception = Record.Exception(() => new RoundTripTimeMonitor(connectionFactory: null, __serverId, __endPoint, TimeSpan.Zero, serverApi: null));
+            var exception = Record.Exception(() => new RoundTripTimeMonitor(connectionFactory: null, __serverId, __endPoint, TimeSpan.Zero, serverApi: null, logger: null));
             var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
             e.ParamName.Should().Be("connectionFactory");
         }
@@ -59,7 +59,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
         [Fact]
         public void Constructor_should_throw_connection_serverId_is_null()
         {
-            var exception = Record.Exception(() => new RoundTripTimeMonitor(Mock.Of<IConnectionFactory>(), serverId: null, __endPoint, TimeSpan.Zero, serverApi: null));
+            var exception = Record.Exception(() => new RoundTripTimeMonitor(Mock.Of<IConnectionFactory>(), serverId: null, __endPoint, TimeSpan.Zero, serverApi: null, logger: null));
             var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
             e.ParamName.Should().Be("serverId");
         }
@@ -96,6 +96,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
                 mockConnection,
                 mockConnectionFactory);
 
+            mockConnectionFactory.Setup(f => f.ConnectionSettings).Returns(() => new ConnectionSettings());
             mockConnectionFactory
                 .Setup(f => f.CreateConnection(__serverId, __endPoint))
                 .Returns(
@@ -164,6 +165,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
             var connection = new MockConnection(__serverId);
 
             var mockConnectionFactory = new Mock<IConnectionFactory>();
+            mockConnectionFactory.Setup(f => f.ConnectionSettings).Returns(() => new ConnectionSettings());
             mockConnectionFactory
                 .Setup(x => x.CreateConnection(__serverId, __endPoint))
                 .Returns(connection);
@@ -174,7 +176,8 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
                 __serverId,
                 __endPoint,
                 TimeSpan.FromMilliseconds(10),
-                serverApi))
+                serverApi,
+                logger: null))
             {
                 subject.Start();
 
@@ -217,7 +220,8 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
                 __serverId,
                 __endPoint,
                 frequency,
-                serverApi: null);
+                serverApi: null,
+                logger: null);
         }
 
         private ConnectionDescription CreateConnectionDescription()
@@ -239,6 +243,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Servers
                 .Returns(() => CreateResponseMessage());
 
             var mockConnectionFactory = new Mock<IConnectionFactory>();
+            mockConnectionFactory.Setup(f => f.ConnectionSettings).Returns(() => new ConnectionSettings());
             mockConnectionFactory
                 .Setup(f => f.CreateConnection(__serverId, __endPoint))
                 .Returns(mockConnection.Object);

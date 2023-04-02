@@ -19,7 +19,7 @@ using FluentAssertions;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using Xunit;
 
 namespace MongoDB.Bson.Tests.Serialization.Serializers
@@ -69,6 +69,34 @@ namespace MongoDB.Bson.Tests.Serialization.Serializers
         [InlineData("{ x : '1970-01-01T00:00:00+01:00' }", "1970-01-01T00:00:00+01:00")]
         [InlineData("{ x : '1970-01-01T00:00:00-01:00' }", "1970-01-01T00:00:00-01:00")]
         public void Deserialize_should_return_expected_result(string json, string expectedResult)
+        {
+            var x = DateTimeOffset.Parse(expectedResult);
+            var m = BsonUtils.ToMillisecondsSinceEpoch(x.UtcDateTime);
+            var subject = new DateTimeOffsetSerializer();
+
+            DateTimeOffset result;
+            using (var reader = new JsonReader(json))
+            {
+                reader.ReadStartDocument();
+                reader.ReadName("x");
+                var context = BsonDeserializationContext.CreateRoot(reader);
+                result = subject.Deserialize(context);
+                reader.ReadEndDocument();
+            }
+
+            result.Should().Be(DateTimeOffset.Parse(expectedResult));
+        }
+
+        [Theory]
+        [InlineData("{ x : [{ $numberDouble : '0' }, { $numberDouble : '0' }] }", "0001-01-01T00:00:00+00:00")]
+        [InlineData("{ x : [{ $numberDouble : '621355968000000000' }, { $numberDouble : '0' }] }", "1970-01-01T00:00:00+00:00")]
+        [InlineData("{ x : [{ $numberDouble : '621355968000000000' }, { $numberDouble : '60' }] }", "1970-01-01T00:00:00+01:00")]
+        [InlineData("{ x : [{ $numberDouble : '621355968000000000' }, { $numberDouble : '-60' }] }", "1970-01-01T00:00:00-01:00")]
+        [InlineData("{ x : { DateTime : 'ignored', Ticks : { $numberDouble : 0 }, Offset : { $numberDouble : '0' } } }", "0001-01-01T00:00:00Z")]
+        [InlineData("{ x : { DateTime : 'ignored', Ticks : { $numberDouble : '621355968000000000' }, Offset : { $numberDouble : '0' } } }", "1970-01-01T00:00:00Z")]
+        [InlineData("{ x : { DateTime : 'ignored', Ticks : { $numberDouble : '621355968000000000' }, Offset : { $numberDouble : '60' } } }", "1970-01-01T00:00:00+01:00")]
+        [InlineData("{ x : { DateTime : 'ignored', Ticks : { $numberDouble : '621355968000000000' }, Offset : { $numberDouble : '-60' } } }", "1970-01-01T00:00:00-01:00")]
+        public void Deserialize_should_be_forgiving_of_actual_numeric_types(string json, string expectedResult)
         {
             var x = DateTimeOffset.Parse(expectedResult);
             var m = BsonUtils.ToMillisecondsSinceEpoch(x.UtcDateTime);

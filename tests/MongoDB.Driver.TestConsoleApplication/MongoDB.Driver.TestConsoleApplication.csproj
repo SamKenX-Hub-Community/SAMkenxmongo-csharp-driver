@@ -1,25 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <IsWindows Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</IsWindows>
-  </PropertyGroup>
-  
+  <Import Project="..\BuildProps\Tests.Build.props" />
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>netcoreapp2.1;netcoreapp3.1;net472</TargetFrameworks>
-    <TargetFrameworks Condition="'$(IsWindows)'!='true'">netcoreapp2.1;netcoreapp3.1</TargetFrameworks>
-    <LangVersion>9</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup>
     <AssemblyTitle>MongoDB.Driver.TestConsoleApplication</AssemblyTitle>
     <Product>MongoDB.Driver.TestConsoleApplication</Product>
-    <Company>MongoDB Inc.</Company>
-    <Copyright>Copyright © 2010-present MongoDB Inc.</Copyright>
     <Description>MongoDB.Driver test console application.</Description>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Version)'==''">
-    <Version>0.0.0-local</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,7 +25,7 @@
       CA2007
     </NoWarn>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\MongoDB.Bson\MongoDB.Bson.csproj" />
     <ProjectReference Include="..\..\src\MongoDB.Driver\MongoDB.Driver.csproj" />

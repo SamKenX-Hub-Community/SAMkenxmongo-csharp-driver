@@ -14,17 +14,13 @@
 */
 
 using System;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
-using MongoDB.Driver.Core.Bindings;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Clusters;
-using MongoDB.Driver.Core.Misc;
-using MongoDB.Driver.Core.TestHelpers;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
-using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
+using MongoDB.Driver.Core.Tests.Core.Operations;
 using Xunit;
 
 namespace MongoDB.Driver.Core.Operations
@@ -48,6 +44,7 @@ namespace MongoDB.Driver.Core.Operations
             var subject = new DropCollectionOperation(_collectionNamespace, _messageEncoderSettings);
 
             subject.CollectionNamespace.Should().BeSameAs(_collectionNamespace);
+            subject.EncryptedFields.Should().BeNull();
             subject.MessageEncoderSettings.Should().BeSameAs(_messageEncoderSettings);
             subject.WriteConcern.Should().BeNull();
         }
@@ -98,7 +95,108 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(expectedResult);
         }
 
-        [SkippableTheory]
+        [Fact]
+        public void CreateEncryptedDropCollectionOperationIfConfigured_should_return_expected_result_when_EncryptedFields_is_null()
+        {
+            var subject = DropCollectionOperation.CreateEncryptedDropCollectionOperationIfConfigured(_collectionNamespace, encryptedFields: null, _messageEncoderSettings, null);
+            var session = OperationTestHelper.CreateSession();
+
+            var s = subject.Should().BeOfType<DropCollectionOperation>().Subject;
+
+            var command = s.CreateCommand(session);
+
+            var expectedResult = new BsonDocument
+            {
+                 { "drop", _collectionNamespace.CollectionName },
+            };
+            command.Should().Be(expectedResult);
+        }
+
+        [Theory]
+        [InlineData(new[] { "'escCollection' : 'escCollectionName'", "escCollectionName" }, new[] { "'eccCollection' : 'eccCollectionName'", "eccCollectionName" }, new[] { "'ecocCollection' : 'ecocCollectionName'", "ecocCollectionName" })]
+        [InlineData(new[] { null, "esc" }, new[] { null, "ecc" }, new[] { null, "ecoc" })]
+        public void CreateEncryptedDropCollectionOperationIfConfigured_should_return_expected_result_when_EncryptedFields_is_set(string[] escCollectionStrElement, string[] eccCollectionStrElement, string[] ecocCollectionStrElement)
+        {
+            var encryptedFields = BsonDocument.Parse($@"
+            {{
+                {GetFirstElementWithCommaOrEmpty(escCollectionStrElement)}
+                {GetFirstElementWithCommaOrEmpty(eccCollectionStrElement)}
+                {GetFirstElementWithCommaOrEmpty(ecocCollectionStrElement)}
+                ""fields"" :
+                [{{
+                    ""path"" : ""firstName"",
+                    ""keyId"" : {{ ""$binary"" : {{ ""subType"" : ""04"", ""base64"" : ""AAAAAAAAAAAAAAAAAAAAAA=="" }} }},
+                    ""bsonType"" : ""string"",
+                    ""queries"" : {{ ""queryType"" : ""equality"" }}
+                }},
+                {{
+                    ""path"" : ""ssn"",
+                    ""keyId"" : {{ ""$binary"" : {{ ""subType"" : ""04"", ""base64"": ""BBBBBBBBBBBBBBBBBBBBBB=="" }} }},
+                    ""bsonType"" : ""string""
+                }}]
+            }}");
+
+            var subject = DropCollectionOperation.CreateEncryptedDropCollectionOperationIfConfigured(_collectionNamespace, encryptedFields, _messageEncoderSettings, null);
+            var session = OperationTestHelper.CreateSession();
+            
+            var operations = ((CompositeWriteOperation<BsonDocument>)subject)._operations<BsonDocument>();
+
+            // esc
+            AssertDropCollectionCommand(
+                operations[0],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(escCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+            // ecc
+            AssertDropCollectionCommand(
+                operations[1],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(eccCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+            // eco
+            AssertDropCollectionCommand(
+                operations[2],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(ecocCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+
+            // main
+            AssertDropCollectionCommand(
+                operations[3],
+                _collectionNamespace,
+                encryptedFields,
+                isMainOperation: true);
+
+            void AssertDropCollectionCommand((IWriteOperation<BsonDocument> Operation, bool IsMainOperation) operationInfo, CollectionNamespace collectionNamespace, BsonDocument encryptedFields, bool isMainOperation)
+            {
+                operationInfo.IsMainOperation.Should().Be(isMainOperation);
+                var operation = operationInfo.Operation.Should().BeOfType<DropCollectionOperation>().Subject;
+                var result = operation.CreateCommand(session);
+                var expectedResult = new BsonDocument
+                {
+                    { "drop", collectionNamespace.CollectionName },
+                };
+                result.Should().Be(expectedResult);
+            }
+
+            string GetFirstElementWithCommaOrEmpty(string[] array) => array.First() != null ? $"{array.First()}," : string.Empty;
+
+            string GetExpectedCollectionName(string[] array)
+            {
+                var first = array.First();
+                var last = array.Last();
+                if (first != null)
+                {
+                    return last;
+                }
+                else
+                {
+                    return $"enxcol_.{_collectionNamespace.CollectionName}.{last}";
+                }
+            }
+        }
+
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_not_throw_when_collection_does_not_exist(
             [Values(false, true)]
@@ -111,7 +209,7 @@ namespace MongoDB.Driver.Core.Operations
             ExecuteOperation(subject, async); // this will throw if we have a problem...
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result(
             [Values(false, true)]
@@ -130,7 +228,7 @@ namespace MongoDB.Driver.Core.Operations
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_throw_when_a_write_concern_error_occurs(
             [Values(false, true)]
@@ -148,7 +246,7 @@ namespace MongoDB.Driver.Core.Operations
             exception.Should().BeOfType<MongoWriteConcernException>();
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_send_session_id_when_supported(
             [Values(false, true)] bool async)

@@ -20,43 +20,53 @@ using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Driver.Core.Clusters;
-using MongoDB.Driver.Core.Misc;
-using MongoDB.Driver.Core.Servers;
-using MongoDB.Driver.Core.Helpers;
-using Xunit;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Authentication;
+using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Compression;
 using MongoDB.Driver.Core.Configuration;
+using MongoDB.Driver.Core.Helpers;
+using MongoDB.Driver.Core.Misc;
+using MongoDB.Driver.Core.Servers;
+using MongoDB.Driver.Core.TestHelpers;
 using MongoDB.Driver.Core.WireProtocol.Messages;
 using Moq;
+using Xunit;
 
 namespace MongoDB.Driver.Core.Connections
 {
     public class ConnectionInitializerTests
     {
         private static readonly ServerId __serverId = new ServerId(new ClusterId(), new DnsEndPoint("localhost", 27017));
+        private static readonly ConnectionDescription __emptyConnectionDescription = new ConnectionDescription(new ConnectionId(__serverId), new HelloResult(new BsonDocument()));
 
         [Theory]
         [ParameterAttributeData]
         public void ConnectionAuthentication_should_throw_an_ArgumentNullException_if_required_arguments_missed(
             [Values(false, true)] bool async)
         {
-            var mockConnectionDescription = new ConnectionDescription(new ConnectionId(__serverId), new HelloResult(new BsonDocument()));
+            var connectionInitializerContext = new ConnectionInitializerContext(__emptyConnectionDescription, new IAuthenticator[0]);
             var subject = CreateSubject();
             if (async)
             {
-                Record.Exception(() => subject.AuthenticateAsync(null, mockConnectionDescription, CancellationToken.None).GetAwaiter().GetResult()).Should().BeOfType<ArgumentNullException>();
+                Record.Exception(() => subject.AuthenticateAsync(null, connectionInitializerContext, CancellationToken.None).GetAwaiter().GetResult()).Should().BeOfType<ArgumentNullException>();
                 Record.Exception(() => subject.AuthenticateAsync(Mock.Of<IConnection>(), null, CancellationToken.None).GetAwaiter().GetResult()).Should().BeOfType<ArgumentNullException>();
             }
             else
             {
-                Record.Exception(() => subject.Authenticate(null, mockConnectionDescription, CancellationToken.None)).Should().BeOfType<ArgumentNullException>();
+                Record.Exception(() => subject.Authenticate(null, connectionInitializerContext, CancellationToken.None)).Should().BeOfType<ArgumentNullException>();
                 Record.Exception(() => subject.Authenticate(Mock.Of<IConnection>(), null, CancellationToken.None)).Should().BeOfType<ArgumentNullException>();
             }
         }
 
+        [Fact]
+        public void ConnectionInitializerContext_should_throw_when_arguments_are_null()
+        {
+            var emptyAuthenticators = new IAuthenticator[0];
+
+            Record.Exception(() => new ConnectionInitializerContext(null, emptyAuthenticators)).Should().BeOfType<ArgumentNullException>().Which.ParamName.Should().Be("description");
+            Record.Exception(() => new ConnectionInitializerContext(__emptyConnectionDescription, null)).Should().BeOfType<ArgumentNullException>().Which.ParamName.Should().Be("authenticators");
+        }
 
         [Theory]
         [ParameterAttributeData]
@@ -130,7 +140,7 @@ namespace MongoDB.Driver.Core.Connections
 
             var sentMessages = connection.GetSentMessages();
             sentMessages.Should().HaveCount(1);
-            result.ConnectionId.ServerValue.Should().Be(1);
+            result.ConnectionId.LongServerValue.Should().Be(1);
         }
 
         [Theory]
@@ -148,7 +158,7 @@ namespace MongoDB.Driver.Core.Connections
 
             var sentMessages = connection.GetSentMessages();
             sentMessages.Should().HaveCount(1);
-            result.ConnectionId.ServerValue.Should().Be(1);
+            result.ConnectionId.LongServerValue.Should().Be(1);
         }
 
         [Theory]
@@ -204,7 +214,7 @@ namespace MongoDB.Driver.Core.Connections
 
             var result = InitializeConnection(subject, connection, async, CancellationToken.None);
 
-            result.ConnectionId.ServerValue.Should().Be(1);
+            result.ConnectionId.LongServerValue.Should().Be(1);
 
             SpinWait.SpinUntil(() => connection.GetSentMessages().Count >= 1, TimeSpan.FromSeconds(5)).Should().BeTrue();
 
@@ -231,7 +241,7 @@ namespace MongoDB.Driver.Core.Connections
 
             var result = InitializeConnection(subject, connection, async, CancellationToken.None);
 
-            result.ConnectionId.ServerValue.Should().Be(1);
+            result.ConnectionId.LongServerValue.Should().Be(1);
 
             SpinWait.SpinUntil(() => connection.GetSentMessages().Count >= 1, TimeSpan.FromSeconds(5)).Should().BeTrue();
 
@@ -264,7 +274,7 @@ namespace MongoDB.Driver.Core.Connections
             var result = InitializeConnection(subject, connection, async, CancellationToken.None);
 
             result.MaxWireVersion.Should().Be(6);
-            result.ConnectionId.ServerValue.Should().Be(10);
+            result.ConnectionId.LongServerValue.Should().Be(10);
             result.AvailableCompressors.Count.Should().Be(1);
             result.AvailableCompressors.Should().Contain(ToCompressorTypeEnum(compressorType));
 
@@ -303,16 +313,16 @@ namespace MongoDB.Driver.Core.Connections
 
         private ConnectionDescription InitializeConnection(ConnectionInitializer connectionInitializer, IConnection connection, bool async, CancellationToken cancellationToken)
         {
-            ConnectionDescription result;
+            ConnectionInitializerContext connectionInitializerContext;
             if (async)
             {
-                result = connectionInitializer.SendHelloAsync(connection, cancellationToken).GetAwaiter().GetResult();
-                return connectionInitializer.AuthenticateAsync(connection, result, cancellationToken).GetAwaiter().GetResult();
+                connectionInitializerContext = connectionInitializer.SendHelloAsync(connection, cancellationToken).GetAwaiter().GetResult();
+                return connectionInitializer.AuthenticateAsync(connection, connectionInitializerContext, cancellationToken).GetAwaiter().GetResult();
             }
             else
             {
-                result = connectionInitializer.SendHello(connection, cancellationToken);
-                return connectionInitializer.Authenticate(connection, result, cancellationToken);
+                connectionInitializerContext = connectionInitializer.SendHello(connection, cancellationToken);
+                return connectionInitializer.Authenticate(connection, connectionInitializerContext, cancellationToken);
             }
         }
     }

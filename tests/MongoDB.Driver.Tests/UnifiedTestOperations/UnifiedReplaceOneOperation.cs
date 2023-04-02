@@ -79,7 +79,7 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations
 
         public UnifiedReplaceOneOperation Build(string targetCollectionId, BsonDocument arguments)
         {
-            var collection = _entityMap.GetCollection(targetCollectionId);
+            var collection = _entityMap.Collections[targetCollectionId];
 
             FilterDefinition<BsonDocument> filter = null;
             ReplaceOptions options = null;
@@ -126,9 +126,9 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations
         {
             var document = new BsonDocument
             {
-                { "matchedCount", result.MatchedCount },
-                { "modifiedCount", result.ModifiedCount },
-                { "upsertedCount", result.UpsertedId == null ? 0 : 1 },
+                { "matchedCount", () => result.MatchedCount, result.IsAcknowledged },
+                { "modifiedCount", () => result.ModifiedCount, result.IsModifiedCountAvailable },
+                { "upsertedCount", () => result.UpsertedId == null ? 0 : 1, result.IsAcknowledged },
             };
 
             return OperationResult.FromResult(document);

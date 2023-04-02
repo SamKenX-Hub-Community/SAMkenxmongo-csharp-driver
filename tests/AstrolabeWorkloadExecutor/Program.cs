@@ -24,6 +24,7 @@ using MongoDB.Bson.TestHelpers.JsonDrivenTests;
 using MongoDB.Driver;
 using MongoDB.Driver.Core;
 using MongoDB.Driver.Core.Misc;
+using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Tests.UnifiedTestOperations;
 
 namespace WorkloadExecutor
@@ -37,7 +38,7 @@ namespace WorkloadExecutor
             var connectionString = args[0];
             var driverWorkload = BsonDocument.Parse(args[1]);
 
-            var astrolabeCancellationTokenSource = new CancellationTokenSource();
+            using var astrolabeCancellationTokenSource = new CancellationTokenSource();
             ConsoleCancelEventHandler cancelHandler = (o, e) => HandleCancel(e, astrolabeCancellationTokenSource);
 
             var resultsDir = Environment.GetEnvironmentVariable("RESULTS_DIR") ?? "";
@@ -113,6 +114,7 @@ namespace WorkloadExecutor
                 { "events", new AstrolabeEventFormatter() } // "events" matches to the "storeEventsAsEntities.id" in the driverWorkload document
             };
             using (var runner = new UnifiedTestRunner(
+                NullLoggingService.Instance,
                 additionalArgs: additionalArgs,
                 eventFormatters: eventFormatters))
             {

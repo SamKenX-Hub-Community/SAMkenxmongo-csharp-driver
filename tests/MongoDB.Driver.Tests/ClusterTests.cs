@@ -21,7 +21,7 @@ using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core;
 using MongoDB.Driver.Core.Bindings;
 using MongoDB.Driver.Core.Clusters;
@@ -30,13 +30,15 @@ using MongoDB.Driver.Core.Events;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.Servers;
 using MongoDB.Driver.Core.TestHelpers;
+using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using MongoDB.Driver.TestHelpers;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace MongoDB.Driver.Tests
 {
-    public class ClusterTests
+    public class ClusterTests : LoggableTestClass
     {
         private static readonly HashSet<string> __commandsToNotCapture = new HashSet<string>
         {
@@ -52,11 +54,15 @@ namespace MongoDB.Driver.Tests
         private const string _collectionName = "test";
         private const string _databaseName = "test";
 
+        public ClusterTests(ITestOutputHelper output) : base(output)
+        {
+        }
+
         /// <summary>
         /// Test that starting a new transaction on a pinned ClientSession unpins the
         /// session and normal server selection is performed for the next operation.
         /// </summary>
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void SelectServer_loadbalancing_prose_test([Values(false, true)] bool async)
         {
@@ -68,7 +74,7 @@ namespace MongoDB.Driver.Tests
             // temporary disable the test on Auth envs due to operations timings irregularities
             RequireServer.Check().Authentication(false);
 
-            const string applicationName = "loadBalancingTest";
+            var applicationName = FailPoint.DecorateApplicationName("loadBalancingTest", async);
             const int threadsCount = 10;
             const int commandsFailPointPerThreadCount = 10;
             const int commandsPerThreadCount = 100;
@@ -84,7 +90,7 @@ namespace MongoDB.Driver.Tests
                 var slowServer = client.Cluster.SelectServer(WritableServerSelector.Instance, default);
                 var fastServer = client.Cluster.SelectServer(new DelegateServerSelector((_, servers) => servers.Where(s => s.ServerId != slowServer.ServerId)), default);
 
-                using var failPoint = FailPoint.Configure(slowServer, NoCoreSession.NewHandle(), failCommand);
+                using var failPoint = FailPoint.Configure(slowServer, NoCoreSession.NewHandle(), failCommand, async);
 
                 var database = client.GetDatabase(_databaseName);
                 CreateCollection();
@@ -170,7 +176,7 @@ namespace MongoDB.Driver.Tests
                     settings.ClusterConfigurator = c => c.Subscribe(eventCapturer);
                     settings.LocalThreshold = TimeSpan.FromMilliseconds(1000);
                 },
-                logger: null,
+                LoggingSettings,
                 true);
             var timeOut = TimeSpan.FromSeconds(60);
             bool AllServersConnected() => client.Cluster.Description.Servers.All(s => s.State == ServerState.Connected);

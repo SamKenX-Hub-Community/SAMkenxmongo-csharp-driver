@@ -17,8 +17,10 @@ using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
+using MongoDB.Driver.Linq;
+using MongoDB.Driver.Tests.Linq.Linq3ImplementationTests;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -29,7 +31,7 @@ using Xunit;
 
 namespace MongoDB.Driver.Tests
 {
-    public class IAggregateFluentExtensionsTests
+    public class IAggregateFluentExtensionsTests : Linq3IntegrationTest
     {
         // public methods
 #if WINDOWS
@@ -46,7 +48,8 @@ namespace MongoDB.Driver.Tests
                 new Person { FirstName = "John" },
                 new Person { FirstName = "Jane" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(1)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
@@ -106,7 +109,8 @@ namespace MongoDB.Driver.Tests
                 new Person { FirstName = "John" },
                 new Person { FirstName = "Jane" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(1)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
@@ -163,15 +167,29 @@ namespace MongoDB.Driver.Tests
             AssertLast(subject, expectedGroup);
         }
 
-        [Fact]
-        public void Group_should_generate_the_correct_document_using_expressions()
+        [Theory]
+        [ParameterAttributeData]
+        public void Group_should_generate_the_correct_document_using_expressions(
+            [Values(LinqProvider.V2, LinqProvider.V3)] LinqProvider linqProvider)
         {
-            var subject = CreateSubject()
+            var collection = GetCollection<Person>(linqProvider: linqProvider);
+            var subject = collection.Aggregate()
                 .Group(x => x.Age, g => new { Name = g.Select(x => x.FirstName + " " + x.LastName).First() });
 
-            var expectedGroup = BsonDocument.Parse("{$group: {_id: '$Age', Name: {'$first': { '$concat': ['$FirstName', ' ', '$LastName']}}}}");
+            var stages = Translate(collection, subject);
+            var expectedStages = linqProvider == LinqProvider.V2 ?
+                new[]
+                {
+                    "{ $group : { _id : '$Age', Name : { $first : { $concat : ['$FirstName', ' ', '$LastName'] } } } }"
+                }
+                :
+                new[]
+                {
+                    "{ $group : { _id : '$Age', __agg0 : { $first : { $concat : ['$FirstName', ' ', '$LastName'] } } } }",
+                    "{ $project : { Name : '$__agg0', _id : 0 } }"
+                };
 
-            AssertLast(subject, expectedGroup);
+            AssertStages(stages, expectedStages);
         }
 
         [Fact]
@@ -200,7 +218,7 @@ namespace MongoDB.Driver.Tests
             AssertLast(subject, expectedLookup);
         }
 
-        [SkippableFact]
+        [Fact]
         public void Lookup_expressive_should_generate_the_correct_lookup_when_using_BsonDocument()
         {
             RequireServer.Check();
@@ -216,7 +234,7 @@ namespace MongoDB.Driver.Tests
             AssertLast(subject, expectedLookup);
         }
 
-        [SkippableFact]
+        [Fact]
         public void Lookup_expressive_should_generate_the_correct_lookup_when_using_lambdas()
         {
             RequireServer.Check();
@@ -323,7 +341,8 @@ namespace MongoDB.Driver.Tests
             {
                 new Person { FirstName = "John" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(2)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
@@ -382,7 +401,8 @@ namespace MongoDB.Driver.Tests
             {
                 new Person { FirstName = "John" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(2)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);

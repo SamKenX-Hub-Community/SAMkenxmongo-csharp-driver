@@ -19,13 +19,15 @@ using System.Net;
 using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Authentication;
+using MongoDB.Driver.Core.Authentication.External;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Helpers;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.Servers;
+using MongoDB.Driver.Core.TestHelpers;
 using Moq;
 using Xunit;
 
@@ -102,7 +104,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
             var saslContinueCommandResponse = MessageHelper.BuildCommandResponse(RawBsonDocumentHelper.FromJson(
                 "{ conversationId : 1, done : true, payload : BinData(0,\"\"), ok : 1}"));
 
-            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, mockClock.Object, serverApi: null);
+            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), mockClock.Object, serverApi: null);
 
             var connection = new MockConnection(__serverId);
             connection.EnqueueCommandResponseMessage(saslStartCommandResponse);
@@ -181,7 +183,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
             var saslStartCommandResponseString = $"{{ conversationId : 1, done : false, payload : BinData(0,\"{ToBase64(serverFirstMessage.ToBson())}\"), ok : 1 }}";
             var saslContinueCommandResponseString = "{ conversationId : 1, done : true, payload : BinData(0,\"\"), ok : 1}";
 
-            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, mockClock.Object, serverApi);
+            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), mockClock.Object, serverApi);
 
             var connection = new MockConnection(__serverId);
             var saslStartResponse = MessageHelper.BuildCommandResponse(RawBsonDocumentHelper.FromJson(saslStartCommandResponseString));
@@ -262,7 +264,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
             var saslContinueCommandResponse = MessageHelper.BuildCommandResponse(RawBsonDocumentHelper.FromJson(
                 "{ conversationId : 1, done : true, payload : BinData(0,\"\"), ok : 1}"));
 
-            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, SystemClock.Instance, serverApi: null);
+            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), SystemClock.Instance, serverApi: null);
 
             var connection = new MockConnection(__serverId);
             connection.EnqueueCommandResponseMessage(saslStartCommandResponse);
@@ -305,7 +307,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
             var saslStartCommandResponse = MessageHelper.BuildCommandResponse(RawBsonDocumentHelper.FromJson(
                 $"{{ conversationId : 1, done : false, payload : BinData(0,\"{ToBase64(serverFirstMessage.ToBson())}\"), ok : 1 }}"));
 
-            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, SystemClock.Instance, serverApi: null);
+            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), SystemClock.Instance, serverApi: null);
 
             var connection = new MockConnection(__serverId);
             connection.EnqueueCommandResponseMessage(saslStartCommandResponse);
@@ -350,7 +352,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
             var saslContinueCommandResponse = MessageHelper.BuildCommandResponse(RawBsonDocumentHelper.FromJson(
                 "{ conversationId : 1, done : true, payload : BinData(0,\"\"), ok : 1}"));
 
-            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, SystemClock.Instance, serverApi: null);
+            var subject = new MongoAWSAuthenticator(credential, null, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), SystemClock.Instance, serverApi: null);
 
             var connection = new MockConnection(__serverId);
             connection.EnqueueCommandResponseMessage(saslStartCommandResponse);
@@ -422,7 +424,7 @@ namespace MongoDB.Driver.Core.Tests.Core.Authentication
                 "{ conversationId : 1, done : true, payload : BinData(0,\"\"), ok : 1}"));
 
             var properties = new[] { new KeyValuePair<string, string>("AWS_SESSION_TOKEN", sessionToken) };
-            var subject = new MongoAWSAuthenticator(credential, properties, mockRandomByteGenerator.Object, mockClock.Object, serverApi: null);
+            var subject = new MongoAWSAuthenticator(credential, properties, mockRandomByteGenerator.Object, Mock.Of<IExternalAuthenticationCredentialsProvider<AwsCredentials>>(), mockClock.Object, serverApi: null);
 
             var connection = new MockConnection(__serverId);
             connection.EnqueueCommandResponseMessage(saslStartCommandResponse);

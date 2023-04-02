@@ -61,15 +61,15 @@ foreach(var person in list)
 
 Documentation
 -------------
-* [MongoDB](http://www.mongodb.org/)
-* [Documentation](http://mongodb.github.io/mongo-csharp-driver/)
+* [MongoDB](https://www.mongodb.com/docs)
+* [Documentation](https://www.mongodb.com/docs/drivers/csharp/current/)
 
 Questions/Bug Reports
 ---------------------
 * [MongoDB Community Forum](https://developer.mongodb.com/community/forums/tags/c/drivers-odms-connectors/7/dot-net-driver)
 * [Jira](https://jira.mongodb.org/browse/CSHARP)
 
-If you’ve identified a security vulnerability in a driver or any other MongoDB project, please report it according to the [instructions here](http://docs.mongodb.org/manual/tutorial/create-a-vulnerability-report).
+If you’ve identified a security vulnerability in a driver or any other MongoDB project, please report it according to the [instructions here](https://www.mongodb.com/docs/manual/tutorial/create-a-vulnerability-report).
 
 Contributing
 ------------
@@ -80,7 +80,6 @@ Please see our [guidelines](CONTRIBUTING.md) for contributing to the driver.
 * Boris Dogadov             boris.dogadov@mongodb.com
 * Dmitry Lukyanov           dmitry.lukyanov@mongodb.com
 * James Kovacs              james.kovacs@mongodb.com
-* Mikalai Mazurenka         mikalai.mazurenka@mongodb.com
 * Robert Stam               robert@mongodb.com
 
 ### Contributors:
@@ -88,6 +87,7 @@ Please see our [guidelines](CONTRIBUTING.md) for contributing to the driver.
 * Bar Arnon                 https://github.com/I3arnon
 * Wan Bachtiar              https://github.com/sindbach
 * Mark Benvenuto            https://github.com/markbenvenuto
+* Brian Buvinghausen        https://github.com/buvinghausen
 * Bit Diffusion Limited     code@bitdiff.com
 * Jimmy Bogard              https://github.com/jbogard
 * Ross Buggins              https://github.com/rbugginsvia
@@ -106,12 +106,15 @@ Please see our [guidelines](CONTRIBUTING.md) for contributing to the driver.
 * Ken Egozi                 mail@kenegozi.com
 * Alexander Endris          https://github.com/AlexEndris
 * Daniel Goldman            daniel@stackwave.com
+* David Golub               https://github.com/dgolub
 * Simon Green               simon@captaincodeman.com
 * Bouke Haarsma             https://github.com/Bouke
 * James Hadwen              james.hadwen@sociustec.com
 * Nuri Halperin             https://github.com/nurih
+* Daniel Hegener            daniel.hegener@fisglobal.com
 * Nikola Irinchev           https://github.com/nirinchev
 * Jacob Jewell              jacobjewell@eflexsystems.com
+* Vincent Kam               https://github.com/vincentkam
 * Danny Kendrick            https://github.com/dkendrick
 * Ruslan Khasanbaev         https://github.com/flaksirus
 * Konstantin Khitrykh       https://github.com/KonH
@@ -124,15 +127,18 @@ Please see our [guidelines](CONTRIBUTING.md) for contributing to the driver.
 * Maksim Krautsou           https://github.com/MaKCbIMKo
 * Richard Kreuter           richard@10gen.com
 * Daniel Lee                https://github.com/dlee148
+* Ming Yau Lee              https://github.com/mingyaulee
 * Kevin Lewis               kevin.l.lewis@gmail.com
 * Dow Liu                   redforks@gmail.com
 * Chuck Lu                  https://github.com/chucklu
 * Alex Lyman                mail.alex.lyman@gmail.com
 * Tomasz Masternak          https://github.com/tmasternak
+* Mikalai Mazurenka         mikalai.mazurenka@mongodb.com
 * John Murphy               https://github.com/jsmurphy
 * Alexander Nagy            optimiz3@gmail.com
 * Sridhar Nanjundeswaran    https://github.com/sridharn
 * Nathan                    https://github.com/terakilobyte
+* Adelin Owona              https://github.com/adelinowona
 * Rachelle Palmer           https://github.com/techbelle
 * Rich Quackenbush          rich.quackenbush@captiveaire.com
 * Carl Reinke               https://github.com/mindless2112
@@ -142,18 +148,19 @@ Please see our [guidelines](CONTRIBUTING.md) for contributing to the driver.
 * Ed Rooth                  edward.rooth@wallstreetjapan.com
 * Katie Sadoff              https://github.com/ksadoff
 * Sam558                    https://github.com/Sam558
+* Vladimir Setyaev          setyaev_v@pgstudio.io
 * Sergey Shushlyapin        https://github.com/sergeyshushlyapin
 * Alexey Skalozub           pieceofsummer@gmail.com
 * Kevin Smith               https://github.com/kevbite
 * Pete Smith                roysvork@gmail.com
+* Matteo Spreafico          https://github.com/MatteoSp
 * staywellandy              https://github.com/staywellandy
 * Vyacheslav Stroy          https://github.com/kreig
 * Jake Sta. Teresa          https://github.com/JakeStaTeresa
 * Testo                     test1@doramail.com
 * TimTim                    https://github.com/wegylexy
+* Craig Wilson              https://github.com/craiggwilson
 * Zhmayev Yaroslav          https://github.com/salaros
 * Aristarkh Zagorodnikov    https://github.com/onyxmaster
-* Vincent Kam               https://github.com/vincentkam
-* Craig Wilson              https://github.com/craiggwilson
 
 If you have contributed and we have neglected to add you to this list please contact one of the maintainers to be added to the list (with apologies).

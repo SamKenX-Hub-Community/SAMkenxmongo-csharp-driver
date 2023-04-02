@@ -24,7 +24,6 @@ using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver.Core.Bindings;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Events;
-using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.TestHelpers;
 using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
 using Xunit;
@@ -66,9 +65,15 @@ namespace MongoDB.Driver.Core.Operations
             }
         }
 
-        protected void CreateCollection(CollectionNamespace collectionNamespace)
+        protected void CreateCollection(CollectionNamespace collectionNamespace, bool changeStreamPreAndPostImages = false)
         {
             var operation = new CreateCollectionOperation(collectionNamespace, _messageEncoderSettings);
+
+            if (changeStreamPreAndPostImages)
+            {
+                operation.ChangeStreamPreAndPostImages = new BsonDocument() { { "enabled", true } };
+            }
+
             ExecuteOperation(operation);
         }
 
@@ -476,7 +481,8 @@ namespace MongoDB.Driver.Core.Operations
                 using (var session = CreateSession(cluster, useImplicitSession))
                 using (var binding = new WritableServerBinding(cluster, session.Fork()))
                 {
-                    var cancellationToken = new CancellationTokenSource().Token;
+                    using var cancellationTokenSource = new CancellationTokenSource();
+                    var cancellationToken = cancellationTokenSource.Token;
                     Exception exception;
                     if (async)
                     {

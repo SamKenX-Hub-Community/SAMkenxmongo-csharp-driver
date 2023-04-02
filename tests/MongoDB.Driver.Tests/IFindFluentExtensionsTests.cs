@@ -14,20 +14,84 @@
 */
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.Driver.Core.Misc;
+using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
+using MongoDB.Driver.Linq;
+using MongoDB.Driver.Tests.Linq.Linq3ImplementationTests;
+using MongoDB.TestHelpers.XunitExtensions;
 using Moq;
 using Xunit;
 
 namespace MongoDB.Driver.Tests
 {
-    public class IFindFluentExtensionsTests
+    public class IFindFluentExtensionsTests : Linq3IntegrationTest
     {
         // public methods
+        [Theory]
+        [ParameterAttributeData]
+        public void Any_should_add_projection_and_limit_and_return_expected_result(
+            [Values(0, 1, 2)] int count,
+            [Values(false, true)] bool async)
+        {
+            var expectedResult = count > 0;
+
+            var mockSubject1 = new Mock<IFindFluent<Person, Person>>();
+            var mockSubject2 = new Mock<IFindFluent<Person, BsonDocument>>();
+            var mockSubject3 = new Mock<IFindFluent<Person, BsonDocument>>();
+            var mockCursor = new Mock<IAsyncCursor<BsonDocument>>();
+            var firstBatch = Enumerable.Range(0, count).Select(i => new BsonDocument("_id", i)).ToArray();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
+
+            mockSubject1.Setup(s => s.Project(It.Is<BsonDocumentProjectionDefinition<Person, BsonDocument>>(p => p.Document["_id"].AsInt32 == 1))).Returns(mockSubject2.Object);
+            mockSubject2.Setup(s => s.Limit(1)).Returns(mockSubject3.Object);
+            mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
+
+            bool result;
+            if (async)
+            {
+                mockSubject3.Setup(s => s.ToCursorAsync(cancellationToken)).Returns(Task.FromResult(mockCursor.Object));
+                mockCursor.Setup(c => c.MoveNextAsync(cancellationToken)).Returns(Task.FromResult(true));
+
+                result = mockSubject1.Object.AnyAsync(cancellationToken).GetAwaiter().GetResult();
+            }
+            else
+            {
+                mockSubject3.Setup(s => s.ToCursor(cancellationToken)).Returns(mockCursor.Object);
+                mockCursor.Setup(c => c.MoveNext(cancellationToken)).Returns(true);
+
+                result = mockSubject1.Object.Any(cancellationToken);
+            }
+
+            result.Should().Be(expectedResult);
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void Any_should_throw_when_find_is_null(
+            [Values(false, true)] bool async)
+        {
+            IFindFluent<Person, Person> subject = null;
+
+            Action action;
+            if (async)
+            {
+                action = () => subject.AnyAsync().GetAwaiter().GetResult();
+            }
+            else
+            {
+                action = () => subject.Any();
+            }
+
+            action.ShouldThrow<ArgumentNullException>().And.ParamName.Should().Be("find");
+        }
+
         [Theory]
         [ParameterAttributeData]
         public void First_should_add_limit_and_call_ToCursor(
@@ -41,7 +105,8 @@ namespace MongoDB.Driver.Tests
                 new Person { FirstName = "John" },
                 new Person { FirstName = "Jane" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(1)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
@@ -99,7 +164,8 @@ namespace MongoDB.Driver.Tests
                 new Person { FirstName = "John" },
                 new Person { FirstName = "Jane" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.Setup(s => s.Limit(1)).Returns(mockSubject2.Object);
             mockCursor.SetupGet(c => c.Current).Returns(firstBatch);
@@ -166,15 +232,27 @@ namespace MongoDB.Driver.Tests
             AssertProjection(subject, expectedProjection);
         }
 
-        [Fact]
-        public void Project_should_generate_the_correct_fields_and_assign_the_correct_result_serializer()
+        [Theory]
+        [ParameterAttributeData]
+        public void Project_should_generate_the_correct_fields_and_assign_the_correct_result_serializer(
+            [Values(LinqProvider.V2, LinqProvider.V3)] LinqProvider linqProvider)
         {
-            var subject = CreateSubject()
+            if (linqProvider == LinqProvider.V3)
+            {
+                RequireServer.Check().Supports(Feature.FindProjectionExpressions);
+            }
+
+            var subject = CreateSubject(linqProvider)
                 .Project(x => x.FirstName + " " + x.LastName);
 
-            var expectedProjection = BsonDocument.Parse("{FirstName: 1, LastName: 1, _id: 0}");
+            var expectedProjection = linqProvider == LinqProvider.V2 ?
+                BsonDocument.Parse("{ FirstName : 1, LastName : 1, _id : 0}") :
+                BsonDocument.Parse("{ _v : { $concat : ['$FirstName', ' ', '$LastName'] }, _id : 0 }");
 
-            AssertProjection(subject, expectedProjection);
+            AssertProjection(subject, expectedProjection, linqProvider);
+
+            var results = subject.ToList();
+            results.Should().Equal("John Doe");
         }
 
         [Theory]
@@ -190,7 +268,8 @@ namespace MongoDB.Driver.Tests
             {
                 new Person { FirstName = "John" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.SetupGet(s => s.Options).Returns(findOptions);
             mockSubject1.Setup(s => s.Limit(2)).Returns(mockSubject2.Object);
@@ -248,7 +327,8 @@ namespace MongoDB.Driver.Tests
             {
                 new Person { FirstName = "John" }
             };
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             mockSubject1.SetupGet(s => s.Options).Returns(findOptions);
             mockSubject1.Setup(s => s.Limit(2)).Returns(mockSubject2.Object);
@@ -371,9 +451,9 @@ namespace MongoDB.Driver.Tests
             AssertSort(subject, expectedSort);
         }
 
-        private static void AssertProjection<TResult>(IFindFluent<Person, TResult> subject, BsonDocument expectedProjection)
+        private static void AssertProjection<TResult>(IFindFluent<Person, TResult> subject, BsonDocument expectedProjection, LinqProvider linqProvider = LinqProvider.V3)
         {
-            Assert.Equal(expectedProjection, subject.Options.Projection.Render(BsonSerializer.SerializerRegistry.GetSerializer<Person>(), BsonSerializer.SerializerRegistry).Document);
+            Assert.Equal(expectedProjection, subject.Options.Projection.Render(BsonSerializer.SerializerRegistry.GetSerializer<Person>(), BsonSerializer.SerializerRegistry, linqProvider).Document);
         }
 
         private static void AssertSort(IFindFluent<Person, Person> subject, BsonDocument expectedSort)
@@ -381,13 +461,21 @@ namespace MongoDB.Driver.Tests
             Assert.Equal(expectedSort, subject.Options.Sort.Render(BsonSerializer.SerializerRegistry.GetSerializer<Person>(), BsonSerializer.SerializerRegistry));
         }
 
-        private IFindFluent<Person, Person> CreateSubject()
+        private IMongoCollection<Person> CreateCollection(LinqProvider linqProvider = LinqProvider.V3)
         {
-            var settings = new MongoCollectionSettings();
-            var mockCollection = new Mock<IMongoCollection<Person>>();
-            mockCollection.SetupGet(c => c.Settings).Returns(settings);
-            var options = new FindOptions<Person, Person>();
-            return new FindFluent<Person, Person>(session: null, collection: mockCollection.Object, filter: new BsonDocument(), options: options);
+            var collection = GetCollection<Person>(linqProvider: linqProvider);
+
+            CreateCollection(
+                collection,
+                new Person { FirstName = "John", LastName = "Doe", Age = 21 });
+
+            return collection;
+        }
+
+        private IFindFluent<Person, Person> CreateSubject(LinqProvider linqProvider = LinqProvider.V3)
+        {
+            var collection = CreateCollection(linqProvider);
+            return collection.Find("{}");
         }
 
         public class Person

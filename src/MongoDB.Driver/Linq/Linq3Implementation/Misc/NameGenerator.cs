@@ -25,7 +25,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
 
         public string GetParameterName(ParameterExpression parameter)
         {
-            if (parameter.Name != null)
+            if (!string.IsNullOrEmpty(parameter.Name))
             {
                 return parameter.Name;
             }
@@ -40,7 +40,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
                 return symbolName;
             }
 
-            return $"_v{_varCounter++}";
+            return $"v__{_varCounter++}";
 
             static bool IsValidVarName(string name)
             {
@@ -52,7 +52,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
 
                 static bool IsValidFirstChar(char c)
                 {
-                    return c == '_' || IsBetween(c, 'a', 'z') || IsBetween(c, 'A', 'Z');
+                    return IsBetween(c, 'a', 'z');
                 }
 
                 static bool IsValidSubsequentChar(char c)

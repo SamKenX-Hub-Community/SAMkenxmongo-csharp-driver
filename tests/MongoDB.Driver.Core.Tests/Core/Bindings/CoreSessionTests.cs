@@ -21,7 +21,7 @@ using System.Net;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.Servers;
@@ -226,7 +226,7 @@ namespace MongoDB.Driver.Core.Bindings
             Mock.Get(subject.ServerSession).Verify(m => m.Dispose(), Times.Once);
         }
 
-        [SkippableFact]
+        [Fact]
         public void StartTransaction_should_throw_when_write_concern_is_unacknowledged()
         {
             RequireServer.Check().ClusterType(ClusterType.ReplicaSet).Supports(Feature.Transactions);
@@ -262,6 +262,18 @@ namespace MongoDB.Driver.Core.Bindings
 
             var e = exception.Should().BeOfType<NotSupportedException>().Subject;
             e.Message.Should().Be("StartTransaction cannot determine if transactions are supported because there are no connected servers.");
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void EnsureTransactionsAreSupported_should_not_throw_when_there_are_no_connected_servers_with_LB(
+            [Values(0, 1, 2, 3)] int numberOfDisconnectedServers) // 0 - no servers at all
+        {
+            var clusterDescription = CreateClusterDescriptionWithDisconnectedServers(numberOfDisconnectedServers);
+            clusterDescription = clusterDescription.WithType(ClusterType.LoadBalanced);
+            var subject = CreateSubject(clusterDescription);
+
+            subject.EnsureTransactionsAreSupported();       
         }
 
         // EnsureTransactionsAreSupported scenario codes

@@ -30,14 +30,16 @@ using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Helpers;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.Servers;
+using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Core.WireProtocol.Messages;
 using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
 using Moq;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace MongoDB.Driver.Core.Tests.Jira
 {
-    public class CSharp3302Tests
+    public class CSharp3302Tests : LoggableTestClass
     {
 #pragma warning disable CS0618 // Type or member is obsolete
         private readonly static ClusterConnectionMode __clusterConnectionMode = ClusterConnectionMode.ReplicaSet;
@@ -50,6 +52,10 @@ namespace MongoDB.Driver.Core.Tests.Jira
         private readonly static TimeSpan __heartbeatInterval = TimeSpan.FromMilliseconds(200);
         private readonly static ServerId __serverId1 = new ServerId(__clusterId, __endPoint1);
         private readonly static ServerId __serverId2 = new ServerId(__clusterId, __endPoint2);
+
+        public CSharp3302Tests(ITestOutputHelper output) : base(output)
+        {
+        }
 
         [Fact]
         public async Task RapidHeartbeatTimerCallback_should_ignore_reentrant_calls()
@@ -73,6 +79,7 @@ namespace MongoDB.Driver.Core.Tests.Jira
                 replicaSetConfig: new ReplicaSetConfig(new[] { __endPoint1 }, "rs", __endPoint1, null));
 
             var serverMock = new Mock<IClusterableServer>();
+            serverMock.Setup(s => s.ServerId).Returns(__serverId1);
             serverMock.Setup(s => s.EndPoint).Returns(__endPoint1);
             serverMock.Setup(s => s.IsInitialized).Returns(true);
             serverMock.Setup(s => s.Description).Returns(serverDescription);
@@ -83,7 +90,7 @@ namespace MongoDB.Driver.Core.Tests.Jira
                 .Setup(f => f.CreateServer(It.IsAny<ClusterType>(), It.IsAny<ClusterId>(), It.IsAny<IClusterClock>(), It.IsAny<EndPoint>()))
                 .Returns(serverMock.Object);
 
-            using (var cluster = new MultiServerCluster(clusterSettings, serverFactoryMock.Object, new EventCapturer()))
+            using (var cluster = new MultiServerCluster(clusterSettings, serverFactoryMock.Object, new EventCapturer(), LoggerFactory))
             {
                 cluster._minHeartbeatInterval(TimeSpan.FromMilliseconds(10));
 
@@ -214,6 +221,7 @@ namespace MongoDB.Driver.Core.Tests.Jira
             params (ServerId ServerId, EndPoint Endpoint)[] serverInfoCollection)
         {
             var mockConnectionFactory = new Mock<IConnectionFactory>();
+            mockConnectionFactory.Setup(f => f.ConnectionSettings).Returns(() => new ConnectionSettings());
 
             foreach (var serverInfo in serverInfoCollection)
             {
@@ -249,10 +257,10 @@ namespace MongoDB.Driver.Core.Tests.Jira
             var eventCapturer = new EventCapturer();
             var connectionPoolFactory = CreateAndSetupConnectionPoolFactory(serverInfoCollection);
             var serverMonitorConnectionFactory = CreateAndSetupServerMonitorConnectionFactory(primaries, serverInfoCollection);
-            var serverMonitorFactory = new ServerMonitorFactory(serverMonitorSettings, serverMonitorConnectionFactory, eventCapturer, serverApi: null);
+            var serverMonitorFactory = new ServerMonitorFactory(serverMonitorSettings, serverMonitorConnectionFactory, eventCapturer, serverApi: null, LoggerFactory);
 
-            var serverFactory = new ServerFactory(__clusterConnectionMode, __connectionModeSwitch, __directConnection, serverSettings, connectionPoolFactory, serverMonitorFactory, eventCapturer, serverApi: null);
-            return new MultiServerCluster(clusterSettings, serverFactory, eventCapturer);
+            var serverFactory = new ServerFactory(__clusterConnectionMode, __connectionModeSwitch, __directConnection, serverSettings, connectionPoolFactory, serverMonitorFactory, eventCapturer, serverApi: null, null);
+            return new MultiServerCluster(clusterSettings, serverFactory, eventCapturer, LoggerFactory);
         }
 
         private IServerSelector CreateWritableServerAndEndPointSelector(EndPoint endPoint)

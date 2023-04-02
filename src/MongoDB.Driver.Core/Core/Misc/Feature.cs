@@ -48,27 +48,38 @@ namespace MongoDB.Driver.Core.Misc
         private static readonly Feature __bypassDocumentValidation = new Feature("BypassDocumentValidation", WireVersion.Server32);
         private static readonly Feature __changeStreamStage = new Feature("ChangeStreamStage", WireVersion.Server36);
         private static readonly Feature __changeStreamPostBatchResumeToken = new Feature("ChangeStreamPostBatchResumeToken", WireVersion.Server40);
+        private static readonly Feature __changeStreamPrePostImages = new Feature("ChangeStreamPrePostImages", WireVersion.Server60);
         private static readonly Feature __clientSideEncryption = new Feature("ClientSideEncryption", WireVersion.Server42);
+        private static readonly Feature __clusteredIndexes = new Feature("ClusteredIndexes", WireVersion.Server53);
         private static readonly Feature __collation = new Feature("Collation", WireVersion.Server34);
         private static readonly Feature __commandMessage = new Feature("CommandMessage", WireVersion.Server36);
         private static readonly Feature __commandsThatWriteAcceptWriteConcern = new Feature("CommandsThatWriteAcceptWriteConcern", WireVersion.Server34);
         private static readonly Feature __createIndexCommitQuorum = new Feature("CreateIndexCommitQuorum", WireVersion.Server44);
         private static readonly Feature __createIndexesCommand = new Feature("CreateIndexesCommand", WireVersion.Server26);
         private static readonly Feature __createIndexesUsingInsertOperations = new Feature("CreateIndexesUsingInsertOperations", WireVersion.Zero, WireVersion.Server42);
+        private static readonly Feature __csfleRangeAlgorithm = new Feature("CsfleRangeAlgorithm", WireVersion.Server62);
+        private static readonly Feature __csfle2 = new Feature("Csfle2", WireVersion.Server60);
         private static readonly Feature __currentOpCommand = new Feature("CurrentOpCommand", WireVersion.Server32);
+        private static readonly Feature __dateOperatorsNewIn50 = new Feature("DateOperatorsNewIn50", WireVersion.Server50);
+        private static readonly Feature __densifyStage = new Feature("DensifyStage", WireVersion.Server51);
+        private static readonly Feature __documentsStage = new Feature("DocumentsStage", WireVersion.Server51);
         private static readonly Feature __documentValidation = new Feature("DocumentValidation", WireVersion.Server32);
         private static readonly Feature __directConnectionSetting = new Feature("DirectConnectionSetting", WireVersion.Server44);
-        private static readonly Feature __estimatedDocumentCountByCollStats = new Feature("EstimatedDocumentCountByCollStats", WireVersion.Server49);
+        private static readonly Feature __electionIdPriorityInSDAM = new Feature("ElectionIdPriorityInSDAM ", WireVersion.Server60);
         private static readonly Feature __eval = new Feature("Eval", WireVersion.Zero, WireVersion.Server42);
         private static readonly Feature __explainCommand = new Feature("ExplainCommand", WireVersion.Server30);
         private static readonly Feature __failPoints = new Feature("FailPoints", WireVersion.Zero);
         private static readonly Feature __failPointsBlockConnection = new Feature("FailPointsBlockConnection", WireVersion.Server42);
         private static readonly Feature __failPointsFailCommand = new Feature("FailPointsFailCommand", WireVersion.Server40);
         private static readonly Feature __failPointsFailCommandForSharded = new Feature("FailPointsFailCommandForSharded", WireVersion.Server42);
+        private static readonly Feature __filterLimit = new Feature("FilterLimit", WireVersion.Server60);
         private static readonly Feature __findAllowDiskUse = new Feature("FindAllowDiskUse", WireVersion.Server44);
         private static readonly Feature __findAndModifyWriteConcern = new Feature("FindAndModifyWriteConcern", WireVersion.Server32);
         private static readonly Feature __findCommand = new Feature("FindCommand", WireVersion.Server32);
+        private static readonly Feature __findProjectionExpressions = new Feature("FindProjectionExpressions", WireVersion.Server44);
         private static readonly Feature __geoNearCommand = new Feature("GeoNearCommand", WireVersion.Zero, WireVersion.Server42);
+        private static readonly Feature __getField = new Feature("GetField", WireVersion.Server50);
+        private static readonly Feature __getMoreComment = new Feature("GetMoreComment", WireVersion.Server44);
         private static readonly Feature __groupCommand = new Feature("GroupCommand", WireVersion.Zero, WireVersion.Server42);
         private static readonly Feature __hedgedReads = new Feature("HedgedReads", WireVersion.Server44);
         private static readonly Feature __hiddenIndex = new Feature("HiddenIndex", WireVersion.Server44);
@@ -91,6 +102,7 @@ namespace MongoDB.Driver.Core.Misc
         private static readonly Feature __maxTime = new Feature("MaxTime", WireVersion.Server26);
         private static readonly Feature __mmapV1StorageEngine = new Feature("MmapV1StorageEngine", WireVersion.Zero, WireVersion.Server42);
         private static readonly Feature __partialIndexes = new Feature("PartialIndexes", WireVersion.Server32);
+        private static readonly Feature __pickAccumulatorsNewIn52 = new Feature("PickAccumulatorsNewIn52", WireVersion.Server52);
         private static readonly Feature __readConcern = new Feature("ReadConcern", WireVersion.Server32);
         private static readonly Feature __retryableReads = new Feature("RetryableReads", WireVersion.Server36);
         private static readonly Feature __retryableWrites = new Feature("RetryableWrites", WireVersion.Server36);
@@ -100,12 +112,17 @@ namespace MongoDB.Driver.Core.Misc
         private static readonly Feature __serverReturnsResumableChangeStreamErrorLabel = new Feature("ServerReturnsResumableChangeStreamErrorLabel", WireVersion.Server44);
         private static readonly Feature __serverReturnsRetryableWriteErrorLabel = new Feature("ServerReturnsRetryableWriteErrorLabel", WireVersion.Server44);
         private static readonly Feature __setWindowFields = new Feature("SetWindowFields", WireVersion.Server50);
+        private static readonly Feature __setWindowFieldsLocf = new Feature("SetWindowFieldsLocf", WireVersion.Server52);
         private static readonly Feature __shardedTransactions = new Feature("ShardedTransactions", WireVersion.Server42);
         private static readonly Feature __snapshotReads = new Feature("SnapshotReads", WireVersion.Server50, notSupportedMessage: "Snapshot reads require MongoDB 5.0 or later");
+        private static readonly Feature __sortArrayOperator = new Feature("SortArrayOperator", WireVersion.Server52);
         private static readonly Feature __speculativeAuthentication = new Feature("SpeculativeAuthentication", WireVersion.Server44);
         private static readonly Feature __streamingHello = new Feature("StreamingHello", WireVersion.Server44);
         private static readonly Feature __tailableCursor = new Feature("TailableCursor", WireVersion.Server32);
+        private static readonly Feature __toConversionOperators = new Feature("ToConversionOperators", WireVersion.Server40);
+        private static readonly Feature __trigOperators = new Feature("TrigOperators", WireVersion.Server42);
         private static readonly Feature __transactions = new Feature("Transactions", WireVersion.Server40);
+        private static readonly Feature __updateWithAggregationPipeline = new Feature("UpdateWithAggregationPipeline", WireVersion.Server42);
         private static readonly Feature __userManagementCommands = new Feature("UserManagementCommands", WireVersion.Server26);
         private static readonly Feature __views = new Feature("Views", WireVersion.Server34);
         private static readonly Feature __wildcardIndexes = new Feature("WildcardIndexes", WireVersion.Server42);
@@ -253,9 +270,20 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature ChangeStreamPostBatchResumeToken => __changeStreamPostBatchResumeToken;
 
         /// <summary>
+        /// Gets the change stream pre post images feature.
+        /// </summary>
+        public static Feature ChangeStreamPrePostImages => __changeStreamPrePostImages;
+
+        /// <summary>
         /// Gets the client side encryption feature.
         /// </summary>
         public static Feature ClientSideEncryption => __clientSideEncryption;
+
+
+        /// <summary>
+        /// Gets the clustered indexes feature.
+        /// </summary>
+        public static Feature ClusteredIndexes => __clusteredIndexes;
 
         /// <summary>
         /// Gets the collation feature.
@@ -292,10 +320,35 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature CreateIndexesUsingInsertOperations => __createIndexesUsingInsertOperations;
 
         /// <summary>
+        /// Gets the csfle range algorithm feature.
+        /// </summary>
+        public static Feature CsfleRangeAlgorithm => __csfleRangeAlgorithm;
+
+        /// <summary>
+        /// Gets the client side field level encryption 2 feature.
+        /// </summary>
+        public static Feature Csfle2 => __csfle2;
+
+        /// <summary>
         /// Gets the current op command feature.
         /// </summary>
         [Obsolete("This property will be removed in a later release.")]
         public static Feature CurrentOpCommand => __currentOpCommand;
+
+        /// <summary>
+        /// Gets the date operators added in 5.0 feature.
+        /// </summary>
+        public static Feature DateOperatorsNewIn50 => __dateOperatorsNewIn50;
+
+        /// <summary>
+        /// Gets the aggregate $densify stage feature.
+        /// </summary>
+        public static Feature DensifyStage => __densifyStage;
+
+        /// <summary>
+        /// Gets the documents stage feature.
+        /// </summary>
+        public static Feature DocumentsStage => __documentsStage;
 
         /// <summary>
         /// Gets the document validation feature.
@@ -309,9 +362,9 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature DirectConnectionSetting => __directConnectionSetting;
 
         /// <summary>
-        /// Gets the estimatedDocumentCountByCollStats feature.
+        /// Gets the electionIdPriorityInSDAM feature.
         /// </summary>
-        public static Feature EstimatedDocumentCountByCollStats => __estimatedDocumentCountByCollStats;
+        public static Feature ElectionIdPriorityInSDAM => __electionIdPriorityInSDAM;
 
         /// <summary>
         /// Gets the eval feature.
@@ -345,6 +398,12 @@ namespace MongoDB.Driver.Core.Misc
         /// </summary>
         public static Feature FailPointsFailCommandForSharded => __failPointsFailCommandForSharded;
 
+
+        /// <summary>
+        /// Gets filter limit feature.
+        /// </summary>
+        public static Feature FilterLimit => __filterLimit;
+
         /// <summary>
         /// Gets the find allowDiskUse feature.
         /// </summary>
@@ -364,9 +423,24 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature FindCommand => __findCommand;
 
         /// <summary>
+        /// Gets the find projection expressions feature.
+        /// </summary>
+        public static Feature FindProjectionExpressions => __findProjectionExpressions;
+
+        /// <summary>
         /// Gets the geoNear command feature.
         /// </summary>
         public static Feature GeoNearCommand => __geoNearCommand;
+
+        /// <summary>
+        /// Gets the getField feature.
+        /// </summary>
+        public static Feature GetField => __getField;
+
+        /// <summary>
+        /// Gets the getMore comment feature.
+        /// </summary>
+        public static Feature GetMoreComment => __getMoreComment;
 
         /// <summary>
         /// Gets the group command feature.
@@ -497,6 +571,11 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature PartialIndexes => __partialIndexes;
 
         /// <summary>
+        /// Gets the pick accumulators new in 5.2 feature.
+        /// </summary>
+        public static Feature PickAccumulatorsNewIn52 => __pickAccumulatorsNewIn52;
+
+        /// <summary>
         /// Gets the read concern feature.
         /// </summary>
         [Obsolete("This property will be removed in a later release.")]
@@ -547,6 +626,11 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature SetWindowFields => __setWindowFields;
 
         /// <summary>
+        /// Gets the set window fields $locf feature.
+        /// </summary>
+        public static Feature SetWindowFieldsLocf => __setWindowFieldsLocf;
+
+        /// <summary>
         /// Gets the sharded transactions feature.
         /// </summary>
         public static Feature ShardedTransactions => __shardedTransactions;
@@ -555,6 +639,11 @@ namespace MongoDB.Driver.Core.Misc
         /// Gets the snapshot reads feature.
         /// </summary>
         public static Feature SnapshotReads => __snapshotReads;
+
+        /// <summary>
+        /// Gets the $sortArray operator feature.
+        /// </summary>
+        public static Feature SortArrayOperator => __sortArrayOperator;
 
         /// <summary>
         /// Gets the speculative authentication feature.
@@ -579,15 +668,30 @@ namespace MongoDB.Driver.Core.Misc
         public static Feature TailableCursor => __tailableCursor;
 
         /// <summary>
+        /// Gets the $toXyz conversion operators feature ($toDouble etc.).
+        /// </summary>
+        public static Feature ToConversionOperators => __toConversionOperators;
+
+        /// <summary>
         /// Gets the transactions feature.
         /// </summary>
         public static Feature Transactions => __transactions;
+
+        /// <summary>
+        /// Gets the trig operators feature.
+        /// </summary>
+        public static Feature TrigOperators => __trigOperators;
 
         /// <summary>
         /// Gets the user management commands feature.
         /// </summary>
         [Obsolete("This property will be removed in a later release.")]
         public static Feature UserManagementCommands => __userManagementCommands;
+
+        /// <summary>
+        /// Gets the update with aggregation pipeline feature.
+        /// </summary>
+        public static Feature UpdateWithAggregationPipeline => __updateWithAggregationPipeline;
 
         /// <summary>
         /// Gets the views feature.
@@ -661,7 +765,7 @@ namespace MongoDB.Driver.Core.Misc
         {
             if (!IsSupported(wireVersion))
             {
-                string errorMessage; 
+                string errorMessage;
                 if (_notSupportedMessage != null)
                 {
                     errorMessage = _notSupportedMessage; ;

@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using MongoDB.Bson.Serialization.Serializers;
 
 namespace MongoDB.Bson.Serialization
@@ -53,6 +54,7 @@ namespace MongoDB.Bson.Serialization
                 { typeof(Nullable<>), typeof(NullableSerializer<>) },
                 { typeof(Object), typeof(ObjectSerializer) },
                 { typeof(ObjectId), typeof(ObjectIdSerializer) },
+                { typeof(Regex), typeof(RegexSerializer) },
                 { typeof(SByte), typeof(SByteSerializer) },
                 { typeof(Single), typeof(SingleSerializer) },
                 { typeof(String), typeof(StringSerializer) },
@@ -69,6 +71,14 @@ namespace MongoDB.Bson.Serialization
                 { typeof(UInt32), typeof(UInt32Serializer) },
                 { typeof(UInt64), typeof(UInt64Serializer) },
                 { typeof(Uri), typeof(UriSerializer) },
+                { typeof(ValueTuple<>), typeof(ValueTupleSerializer<>) },
+                { typeof(ValueTuple<,>), typeof(ValueTupleSerializer<,>) },
+                { typeof(ValueTuple<,,>), typeof(ValueTupleSerializer<,,>) },
+                { typeof(ValueTuple<,,,>), typeof(ValueTupleSerializer<,,,>) },
+                { typeof(ValueTuple<,,,,>), typeof(ValueTupleSerializer<,,,,>) },
+                { typeof(ValueTuple<,,,,,>), typeof(ValueTupleSerializer<,,,,,>) },
+                { typeof(ValueTuple<,,,,,,>), typeof(ValueTupleSerializer<,,,,,,>) },
+                { typeof(ValueTuple<,,,,,,,>), typeof(ValueTupleSerializer<,,,,,,,>) },
                 { typeof(Version), typeof(VersionSerializer) }
             };
         }

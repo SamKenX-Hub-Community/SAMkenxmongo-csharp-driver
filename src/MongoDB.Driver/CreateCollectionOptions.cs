@@ -27,7 +27,9 @@ namespace MongoDB.Driver
         // fields
         private bool? _autoIndexId;
         private bool? _capped;
+        private ChangeStreamPreAndPostImagesOptions _changeStreamPreAndPostImagesOptions;
         private Collation _collation;
+        private BsonDocument _encryptedFields;
         private TimeSpan? _expireAfter;
         private IndexOptionDefaults _indexOptionDefaults;
         private long? _maxDocuments;
@@ -69,6 +71,23 @@ namespace MongoDB.Driver
             set { _capped = value; }
         }
 
+        /// <summary>
+        /// Gets or sets  Gets or sets a change streams pre and post images options.
+        /// </summary>
+        public ChangeStreamPreAndPostImagesOptions ChangeStreamPreAndPostImagesOptions
+        {
+            get { return _changeStreamPreAndPostImagesOptions; }
+            set { _changeStreamPreAndPostImagesOptions = value; }
+        }
+
+        /// <summary>
+        /// [Beta] Gets or sets encrypted fields.
+        /// </summary>
+        public BsonDocument EncryptedFields
+        {
+            get { return _encryptedFields; }
+            set { _encryptedFields = value; }
+        }
 
         /// <summary>
         /// Gets or sets a timespan indicating how long documents in a time series collection should be retained.
@@ -177,6 +196,27 @@ namespace MongoDB.Driver
             get { return _validationLevel; }
             set { _validationLevel = value; }
         }
+
+        internal virtual CreateCollectionOptions Clone() =>
+            new CreateCollectionOptions
+            {
+                _autoIndexId = _autoIndexId,
+                _capped = _capped,
+                _changeStreamPreAndPostImagesOptions = _changeStreamPreAndPostImagesOptions,
+                _collation = _collation,
+                _encryptedFields = _encryptedFields,
+                _expireAfter = _expireAfter,
+                _indexOptionDefaults = _indexOptionDefaults,
+                _maxDocuments = _maxDocuments,
+                _maxSize = _maxSize,
+                _noPadding = _noPadding,
+                _serializerRegistry = _serializerRegistry,
+                _storageEngine = _storageEngine,
+                _timeSeriesOptions = _timeSeriesOptions,
+                _usePowerOf2Sizes = _usePowerOf2Sizes,
+                _validationAction = _validationAction,
+                _validationLevel = _validationLevel
+            };
     }
 
     /// <summary>
@@ -207,6 +247,8 @@ namespace MongoDB.Driver
                     AutoIndexId = options.AutoIndexId,
                     Capped = options.Capped,
                     Collation = options.Collation,
+                    ChangeStreamPreAndPostImagesOptions = options.ChangeStreamPreAndPostImagesOptions,
+                    EncryptedFields = options.EncryptedFields,
                     ExpireAfter = options.ExpireAfter,
                     IndexOptionDefaults = options.IndexOptionDefaults,
                     MaxDocuments = options.MaxDocuments,
@@ -227,10 +269,20 @@ namespace MongoDB.Driver
         #endregion
 
         // private fields
+        private ClusteredIndexOptions<TDocument> _clusteredIndex;
         private IBsonSerializer<TDocument> _documentSerializer;
         private FilterDefinition<TDocument> _validator;
 
         // public properties
+        /// <summary>
+        /// Gets or sets the <see cref="ClusteredIndexOptions{TDocument}"/>.
+        /// </summary>
+        public ClusteredIndexOptions<TDocument> ClusteredIndex
+        {
+            get { return _clusteredIndex; }
+            set { _clusteredIndex = value; }
+        }
+
         /// <summary>
         /// Gets or sets the document serializer.
         /// </summary>
@@ -251,5 +303,32 @@ namespace MongoDB.Driver
             get { return _validator; }
             set { _validator = value; }
         }
+
+        internal override CreateCollectionOptions Clone() =>
+            new CreateCollectionOptions<TDocument>
+            {
+    #pragma warning disable CS0618 // Type or member is obsolete
+                AutoIndexId = base.AutoIndexId,
+    #pragma warning restore CS0618 // Type or member is obsolete
+                Capped = base.Capped,
+                ChangeStreamPreAndPostImagesOptions = base.ChangeStreamPreAndPostImagesOptions,
+                Collation = base.Collation,
+                EncryptedFields = base.EncryptedFields,
+                ExpireAfter = base.ExpireAfter,
+                IndexOptionDefaults = base.IndexOptionDefaults,
+                MaxDocuments = base.MaxDocuments,
+                MaxSize = base.MaxSize,
+                NoPadding = base.NoPadding,
+                SerializerRegistry = base.SerializerRegistry,
+                StorageEngine = base.StorageEngine,
+                TimeSeriesOptions = base.TimeSeriesOptions,
+                UsePowerOf2Sizes = base.UsePowerOf2Sizes,
+                ValidationAction = base.ValidationAction,
+                ValidationLevel = base.ValidationLevel,
+
+                _clusteredIndex = _clusteredIndex,
+                _documentSerializer = _documentSerializer,
+                _validator = _validator
+            };
     }
 }

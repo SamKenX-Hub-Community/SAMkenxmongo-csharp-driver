@@ -79,7 +79,7 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations
 
         public UnifiedCreateChangeStreamOnCollectionOperation Build(string targetCollectionId, BsonDocument arguments)
         {
-            var collection = _entityMap.GetCollection(targetCollectionId);
+            var collection = _entityMap.Collections[targetCollectionId];
 
             ChangeStreamOptions options = null;
             BsonDocumentStagePipelineDefinition<ChangeStreamDocument<BsonDocument>, ChangeStreamDocument<BsonDocument>> pipeline = null;
@@ -96,9 +96,21 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations
                         options ??= new ChangeStreamOptions();
                         options.Comment = argument.Value;
                         break;
+                    case "fullDocument":
+                        options ??= new ChangeStreamOptions();
+                        options.FullDocument = (ChangeStreamFullDocumentOption)Enum.Parse(typeof(ChangeStreamFullDocumentOption), argument.Value.AsString, true);
+                        break;
+                    case "fullDocumentBeforeChange":
+                        options ??= new ChangeStreamOptions();
+                        options.FullDocumentBeforeChange = (ChangeStreamFullDocumentBeforeChangeOption)Enum.Parse(typeof(ChangeStreamFullDocumentBeforeChangeOption), argument.Value.AsString, true);
+                        break;
                     case "pipeline":
                         var stages = argument.Value.AsBsonArray.Cast<BsonDocument>();
                         pipeline = new BsonDocumentStagePipelineDefinition<ChangeStreamDocument<BsonDocument>, ChangeStreamDocument<BsonDocument>>(stages);
+                        break;
+                    case "showExpandedEvents":
+                        options ??= new ChangeStreamOptions();
+                        options.ShowExpandedEvents = argument.Value.AsNullableBoolean;
                         break;
                     default:
                         throw new FormatException($"Invalid CreateChangeStreamOperation argument name: '{argument.Name}'.");

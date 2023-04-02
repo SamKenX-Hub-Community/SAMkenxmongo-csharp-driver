@@ -19,7 +19,7 @@ using System.Linq;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver;
 using Xunit.Sdk;
 
@@ -62,10 +62,14 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations.Matchers
 
                 switch (operatorName)
                 {
+                    case "$$exists":
+                        actual.Should().NotBeNull();
+                        break;
                     case "$$type":
                         AssertExpectedType(actual, operatorValue);
                         break;
                     case "$$matchesHexBytes":
+                    case "$$matchAsRoot":
                         AssertValuesMatch(actual, operatorValue, true);
                         break;
                     case "$$unsetOrMatches":
@@ -116,9 +120,13 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations.Matchers
                                 actualDocument.Names.Should().Contain(expectedName);
                                 AssertExpectedType(actualDocument[expectedName], operatorValue);
                                 continue;
+                            case "$$matchAsDocument":
+                                var parsedDocument = BsonDocument.Parse(actualDocument[expectedName].AsString);
+                                AssertValuesMatch(parsedDocument, operatorValue, false);
+                                continue;
                             case "$$matchesEntity":
                                 var resultId = operatorValue.AsString;
-                                expectedValue = _entityMap.GetResult(resultId);
+                                expectedValue = _entityMap.Resutls[resultId];
                                 break;
                             case "$$matchesHexBytes":
                                 expectedValue = operatorValue;
@@ -132,7 +140,7 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations.Matchers
                                 break;
                             case "$$sessionLsid":
                                 var sessionId = operatorValue.AsString;
-                                expectedValue = _entityMap.GetSessionId(sessionId);
+                                expectedValue = _entityMap.SessionIds[sessionId];
                                 break;
                             default:
                                 throw new FormatException($"Unrecognized special operator: '{operatorName}'.");
@@ -168,8 +176,8 @@ namespace MongoDB.Driver.Tests.UnifiedTestOperations.Matchers
             }
             else
             {
-                actual.BsonType.Should().Be(expected.BsonType);
-                actual.Should().Be(expected);
+                (actual ?? BsonNull.Value).BsonType.Should().Be(expected.BsonType);
+                (actual ?? BsonNull.Value).Should().Be(expected ?? BsonNull.Value);
             }
         }
 

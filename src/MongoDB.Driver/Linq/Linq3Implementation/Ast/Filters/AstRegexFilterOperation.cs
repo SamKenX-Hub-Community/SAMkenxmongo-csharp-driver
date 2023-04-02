@@ -27,7 +27,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
         public AstRegexFilterOperation(string pattern, string options)
         {
             _pattern = Ensure.IsNotNull(pattern, nameof(pattern));
-            _options = Ensure.IsNotNull(options, nameof(options));
+            _options = options;
         }
 
         public override AstNodeType NodeType => AstNodeType.RegexFilterOperation;
@@ -41,7 +41,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
 
         public override BsonValue Render()
         {
-            return new BsonRegularExpression(_pattern, _options);
+            return new BsonDocument
+            {
+                { "$regex", _pattern },
+                { "$options", _options, _options != null },
+            };
         }
     }
 }

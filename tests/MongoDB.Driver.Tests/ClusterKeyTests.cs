@@ -19,7 +19,7 @@ using System.Linq;
 using System.Security.Authentication;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Compression;
 using MongoDB.Driver.Core.Configuration;
@@ -45,12 +45,14 @@ namespace MongoDB.Driver.Tests
         [Theory]
         [InlineData("AllowInsecureTls", true)]
         [InlineData("ApplicationName", true)]
+        [InlineData("BypassQueryAnalysis", true)]
         [InlineData("ClusterConfigurator", true)]
         [InlineData("Compressors", true)]
         [InlineData("ConnectionMode", true)]
         [InlineData("ConnectTimeout", true)]
         [InlineData("Credentials", false)]
         [InlineData("DirectConnection", true)]
+        [InlineData("EncryptedFieldsMap", true)]
         [InlineData("HeartbeatInterval", true)]
         [InlineData("HeartbeatTimeout", true)]
         [InlineData("IPv6", true)]
@@ -89,7 +91,7 @@ namespace MongoDB.Driver.Tests
         [Theory]
         [InlineData(true, true)]
         [InlineData(true, false)]
-        public void Equals_should_return_true_if_kms_providers_have_different_records_count(
+        public void Equals_should_return_false_if_kms_providers_have_different_records_count(
             bool skipTheLastMainRecord,
             bool skipTheLastNestedRecord)
         {
@@ -122,11 +124,24 @@ namespace MongoDB.Driver.Tests
         public void Equals_should_return_true_if_schema_maps_have_the_same_items_but_with_different_order(
             [Values(false, true)] bool withReverse)
         {
-            var schemaMap1 = GetSchemaMaps();
-            var schemaMap2 = GetSchemaMaps(withReverse: withReverse);
+            var schemaMap1 = GetMaps();
+            var schemaMap2 = GetMaps(withReverse: withReverse);
 
             var subject1 = CreateSubjectWith(schemaMapValue: schemaMap1);
             var subject2 = CreateSubjectWith(schemaMapValue: schemaMap2);
+            subject1.Should().Be(subject2);
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void Equals_should_return_true_if_encryptedFields_maps_have_the_same_items_but_with_different_order(
+            [Values(false, true)] bool withReverse)
+        {
+            var map1 = GetMaps();
+            var map2 = GetMaps(withReverse: withReverse);
+
+            var subject1 = CreateSubjectWith(encryptedFieldsMap: map1);
+            var subject2 = CreateSubjectWith(encryptedFieldsMap: map2);
             subject1.Should().Be(subject2);
         }
 
@@ -168,6 +183,7 @@ namespace MongoDB.Driver.Tests
         {
             var allowInsecureTls = true;
             var applicationName = "app1";
+            var bypassQueryAnalysis = false;
             var clusterConfigurator = new Action<ClusterBuilder>(b => { });
 #pragma warning disable CS0618 // Type or member is obsolete
             var connectionModeSwitch = ConnectionModeSwitch.UseConnectionMode;
@@ -181,12 +197,14 @@ namespace MongoDB.Driver.Tests
             var credentials = new List<MongoCredential> { MongoCredential.CreateMongoCRCredential("source", "username", "password") };
 #pragma warning restore 618
             bool? directConnection = null;
+            var encryptedFieldsMap = new Dictionary<string, BsonDocument>();
             var heartbeatInterval = TimeSpan.FromSeconds(7);
             var heartbeatTimeout = TimeSpan.FromSeconds(8);
             var ipv6 = false;
             var kmsProviders = new Dictionary<string, IReadOnlyDictionary<string, object>>();
             var loadBalanced = true;
             var localThreshold = TimeSpan.FromMilliseconds(20);
+            var loggingSettings = new LoggingSettings();
             var maxConnecting = 3;
             var maxConnectionIdleTime = TimeSpan.FromSeconds(2);
             var maxConnectionLifeTime = TimeSpan.FromSeconds(3);
@@ -218,6 +236,7 @@ namespace MongoDB.Driver.Tests
                 {
                     case "AllowInsecureTls": allowInsecureTls = !allowInsecureTls; break;
                     case "ApplicationName": applicationName = "app2"; break;
+                    case "BypassQueryAnalysis": bypassQueryAnalysis = true; break;
                     case "ClusterConfigurator": clusterConfigurator = new Action<ClusterBuilder>(b => { }); break;
                     case "Compressors": compressors = new[] { new CompressorConfiguration(CompressorType.Zlib) }; break;
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -226,7 +245,8 @@ namespace MongoDB.Driver.Tests
                             connectionMode = ConnectionMode.ReplicaSet;
                             connectionModeSwitch = ConnectionModeSwitch.UseConnectionMode;
                             directConnection = null; // reset
-                        } break;
+                        }
+                        break;
 #pragma warning restore CS0618 // Type or member is obsolete
                     case "ConnectTimeout": connectTimeout = TimeSpan.FromSeconds(99); break;
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -239,6 +259,7 @@ namespace MongoDB.Driver.Tests
 #pragma warning restore CS0618 // Type or member is obsolete
                         }
                         break;
+                    case "EncryptedFieldsMap": encryptedFieldsMap.Add("k1", new BsonDocument()); break;
                     case "HeartbeatInterval": heartbeatInterval = TimeSpan.FromSeconds(99); break;
                     case "HeartbeatTimeout": heartbeatTimeout = TimeSpan.FromSeconds(99); break;
                     case "IPv6": ipv6 = !ipv6; break;
@@ -278,13 +299,14 @@ namespace MongoDB.Driver.Tests
                 connectionModeSwitch,
                 connectTimeout,
                 credentials,
+                new CryptClientSettings(bypassQueryAnalysis, null, null, encryptedFieldsMap, false, kmsProviders, schemaMap),
                 directConnection,
                 heartbeatInterval,
                 heartbeatTimeout,
                 ipv6,
-                kmsProviders,
                 loadBalanced,
                 localThreshold,
+                loggingSettings,
                 maxConnecting,
                 maxConnectionIdleTime,
                 maxConnectionLifeTime,
@@ -292,7 +314,6 @@ namespace MongoDB.Driver.Tests
                 minConnectionPoolSize,
                 receiveBufferSize,
                 replicaSetName,
-                schemaMap,
                 scheme,
                 sdamLogFileName,
                 sendBufferSize,
@@ -311,11 +332,13 @@ namespace MongoDB.Driver.Tests
             Dictionary<string, IReadOnlyDictionary<string, object>> kmsProvidersValue = null,
             Dictionary<string, BsonDocument> schemaMapValue = null,
 #pragma warning disable CS0618 // Type or member is obsolete
-            ConnectionModeSwitch connectionModeSwitch = ConnectionModeSwitch.UseConnectionMode)
+            ConnectionModeSwitch connectionModeSwitch = ConnectionModeSwitch.UseConnectionMode,
 #pragma warning restore CS0618 // Type or member is obsolete
+            Dictionary<string, BsonDocument> encryptedFieldsMap = null)
         {
             var allowInsecureTls = true;
             var applicationName = "app1";
+            var bypassQueryAnalysis = false;
             var clusterConfigurator = new Action<ClusterBuilder>(b => { });
             var compressors = new CompressorConfiguration[0];
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -332,6 +355,7 @@ namespace MongoDB.Driver.Tests
             var kmsProviders = kmsProvidersValue ?? new Dictionary<string, IReadOnlyDictionary<string, object>>();
             var loadBalanced = true;
             var localThreshold = TimeSpan.FromMilliseconds(20);
+            var loggingSettings = new LoggingSettings();
             var maxConnecting = 3;
             var maxConnectionIdleTime = TimeSpan.FromSeconds(2);
             var maxConnectionLifeTime = TimeSpan.FromSeconds(3);
@@ -366,13 +390,14 @@ namespace MongoDB.Driver.Tests
                 connectionModeSwitch,
                 connectTimeout,
                 credentials,
+                new CryptClientSettings(bypassQueryAnalysis, null, null, encryptedFieldsMap, false, kmsProviders, schemaMap),
                 directConnection,
                 heartbeatInterval,
                 heartbeatTimeout,
                 ipv6,
-                kmsProviders,
                 loadBalanced,
                 localThreshold,
+                loggingSettings,
                 maxConnecting,
                 maxConnectionIdleTime,
                 maxConnectionLifeTime,
@@ -380,7 +405,6 @@ namespace MongoDB.Driver.Tests
                 minConnectionPoolSize,
                 receiveBufferSize,
                 replicaSetName,
-                schemaMap,
                 scheme,
                 sdamLogFileName,
                 sendBufferSize,
@@ -450,7 +474,7 @@ namespace MongoDB.Driver.Tests
                 : kmsProviders;
         }
 
-        private Dictionary<string, BsonDocument> GetSchemaMaps(
+        private Dictionary<string, BsonDocument> GetMaps(
             bool withReverse = false,
             bool skipLastRecord = false)
         {

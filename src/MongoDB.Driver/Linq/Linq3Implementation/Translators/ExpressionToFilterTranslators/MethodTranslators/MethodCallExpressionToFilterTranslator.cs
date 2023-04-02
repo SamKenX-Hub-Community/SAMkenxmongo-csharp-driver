@@ -25,6 +25,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToFilter
             switch (expression.Method.Name)
             {
                 case "Contains": return ContainsMethodToFilterTranslator.Translate(context, expression);
+                case "ContainsKey": return ContainsKeyMethodToFilterTranslator.Translate(context, expression);
                 case "EndsWith": return EndsWithMethodToFilterTranslator.Translate(context, expression);
                 case "Equals": return EqualsMethodToFilterTranslator.Translate(context, expression);
                 case "HasFlag": return HasFlagMethodToFilterTranslator.Translate(context, expression);
@@ -36,6 +37,12 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToFilter
                 case "All":
                 case "Any":
                     return AllOrAnyMethodToFilterTranslator.Translate(context, expression);
+
+                case "AnyStringIn":
+                case "AnyStringNin":
+                case "StringIn":
+                case "StringNin":
+                    return StringInOrNinMethodToFilterTranslator.Translate(context, expression);
             }
 
             throw new ExpressionNotSupportedException(expression);

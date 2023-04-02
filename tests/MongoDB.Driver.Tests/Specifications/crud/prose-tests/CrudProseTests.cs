@@ -41,7 +41,7 @@ namespace MongoDB.Driver.Tests.Specifications.crud.prose_tests
         }
 
         // public methods
-        [SkippableFact]
+        [Fact]
         public void WriteConcernError_details_should_expose_writeConcernError_errInfo()
         {
             var failPointFeature = CoreTestConfiguration.Cluster.Description.Type == ClusterType.Sharded
@@ -88,7 +88,7 @@ namespace MongoDB.Driver.Tests.Specifications.crud.prose_tests
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public void WriteError_details_should_expose_writeErrors_errInfo()
         {
             RequireServer.Check().VersionGreaterThanOrEqualTo(new SemanticVersion(5, 0, 0, ""));
@@ -167,7 +167,7 @@ namespace MongoDB.Driver.Tests.Specifications.crud.prose_tests
                 settings.HeartbeatInterval = TimeSpan.FromMilliseconds(5);
                 settings.ClusterConfigurator = c => c.Subscribe(eventCapturer);
             },
-            logger: CreateLogger<DisposableMongoClient>());
+            LoggingSettings);
         }
     }
 }

@@ -17,6 +17,7 @@ using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers;
 using MongoDB.Driver.Encryption;
+using MongoDB.Driver.Tests.Specifications.client_side_encryption;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,12 +25,13 @@ using Xunit;
 
 namespace MongoDB.Driver.Tests
 {
+    [Trait("Category", "CSFLE")]
     public class MongocryptdFactoryTests
     {
         [Fact]
         public void CreateMongocryptdClientSettings_should_set_correct_serverSelectionTimeout()
         {
-            var subject = new MongocryptdFactory(null);
+            var subject = new MongocryptdFactory(null, null);
             var clientSettings = subject.CreateMongocryptdClientSettings();
             clientSettings.ServerSelectionTimeout.Should().Be(TimeSpan.FromSeconds(10));
         }
@@ -44,12 +46,24 @@ namespace MongoDB.Driver.Tests
             {
                 extraOptions.Add(optionKey, optionValue);
             }
-            var subject = new MongocryptdFactory(extraOptions);
+            var subject = new MongocryptdFactory(extraOptions, null);
             var connectionString = subject.CreateMongocryptdConnectionString();
             connectionString.Should().Be(expectedConnectionString);
         }
 
-        [SkippableTheory]
+        [Theory]
+        [InlineData(null, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        public void ShouldMongocryptdBeSpawned_should_correctly_handle_bypassQueryAnalysis(bool? bypassQueryAnalysis, bool shouldBeSpawned)
+        {
+            var extraOptions = new Dictionary<string, object>();
+            var subject = new MongocryptdFactory(extraOptions, bypassQueryAnalysis);
+            var shouldMongocryptdBeSpawned = subject.ShouldMongocryptdBeSpawned(out _, out _);
+            shouldMongocryptdBeSpawned.Should().Be(shouldBeSpawned);
+        }
+
+        [Theory]
         [InlineData("{ mongocryptdBypassSpawn : true }", null, null, false)]
         [InlineData(null, "mongocryptd#extension#", "--idleShutdownTimeoutSecs 60 --logpath #logpath# --logappend", true)]
         [InlineData("{ mongocryptdBypassSpawn : false }", "mongocryptd#extension#", "--idleShutdownTimeoutSecs 60 --logpath #logpath# --logappend", true)]
@@ -70,6 +84,8 @@ namespace MongoDB.Driver.Tests
         [InlineData("{ mongocryptdSpawnArgs : ['arg1 A', 'arg2 B', '--logpath path.txt', '--logappend'] }", "mongocryptd#extension#", "--arg1 A --arg2 B --logpath path.txt --logappend --idleShutdownTimeoutSecs 60", true)]
         [InlineData("{ mongocryptdSpawnArgs : ['arg1 A', 'arg2 B', '--logappend'] }", "mongocryptd#extension#", "--arg1 A --arg2 B --logappend --idleShutdownTimeoutSecs 60 --logpath #logpath#", true)]
         [InlineData("{ mongocryptdBypassSpawn : false, mongocryptdSpawnArgs : [ '--arg1 A', '--arg2 B', '--idleShutdownTimeoutSecs 50'] }", "mongocryptd#extension#", "--arg1 A --arg2 B --idleShutdownTimeoutSecs 50 --logpath #logpath# --logappend", true)]
+        // with extra space
+        [InlineData("{ mongocryptdSpawnArgs : [' --port=27030' ] }", "mongocryptd#extension#", "--port=27030 --idleShutdownTimeoutSecs 60 --logpath #logpath# --logappend", true)]
         public void Mongocryptd_should_be_spawned_with_correct_extra_arguments(
             string stringExtraOptions,
             string expectedPath,
@@ -98,7 +114,7 @@ namespace MongoDB.Driver.Tests
                 .Elements
                 .ToDictionary(k => k.Name, v => CreateTypedExtraOptions(v.Value));
 
-            var subject = new MongocryptdFactory(extraOptions);
+            var subject = new MongocryptdFactory(extraOptions, null);
 
             var result = subject.ShouldMongocryptdBeSpawned(out var path, out var args);
             result.Should().Be(shouldBeSpawned);

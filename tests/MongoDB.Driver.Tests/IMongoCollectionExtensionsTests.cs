@@ -18,7 +18,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Linq;
 using MongoDB.Driver.Tests.Linq.Linq2ImplementationTests;
 using MongoDB.Driver.Tests.Linq.Linq3ImplementationTests;
@@ -59,9 +59,9 @@ namespace MongoDB.Driver.Tests
         [ParameterAttributeData]
         public void AsQueryable_should_return_expected_result(
             [Values(false, true)] bool withSession,
-            [Values(2, 3)] int linqVersion)
+            [Values(LinqProvider.V2, LinqProvider.V3)] LinqProvider linqProvider)
         {
-            var collection = CreateMockCollection(linqVersion).Object;
+            var collection = CreateMockCollection(linqProvider).Object;
             var session = withSession ? Mock.Of<IClientSessionHandle>() : null;
             var options = new AggregateOptions();
 
@@ -75,7 +75,7 @@ namespace MongoDB.Driver.Tests
                 result = collection.AsQueryable(options);
             }
 
-            if (linqVersion == 2)
+            if (linqProvider == LinqProvider.V2)
             {
                 var queryable = result.Should().BeOfType<Driver.Linq.Linq2Implementation.MongoQueryableImpl<Person, Person>>().Subject;
                 var provider = queryable.Provider.Should().BeOfType<Driver.Linq.Linq2Implementation.MongoQueryProviderImpl<Person>>().Subject;
@@ -83,8 +83,7 @@ namespace MongoDB.Driver.Tests
                 provider._options().Should().BeSameAs(options);
                 provider._session().Should().BeSameAs(session);
             }
-
-            if (linqVersion == 3)
+            else
             {
                 var queryable = result.Should().BeOfType<Driver.Linq.Linq3Implementation.MongoQuery<Person, Person>>().Subject;
                 var provider = queryable.Provider.Should().BeOfType<Driver.Linq.Linq3Implementation.MongoQueryProvider<Person>>().Subject;
@@ -105,7 +104,8 @@ namespace MongoDB.Driver.Tests
             var session = new Mock<IClientSessionHandle>().Object;
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new CountOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -154,7 +154,8 @@ namespace MongoDB.Driver.Tests
             var session = new Mock<IClientSessionHandle>().Object;
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new CountOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -196,7 +197,8 @@ namespace MongoDB.Driver.Tests
             var session = new Mock<IClientSessionHandle>().Object;
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new DeleteOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -254,7 +256,8 @@ namespace MongoDB.Driver.Tests
             var session = new Mock<IClientSessionHandle>().Object;
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new DeleteOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -316,7 +319,8 @@ namespace MongoDB.Driver.Tests
             var filterDefinition = Builders<Person>.Filter.Eq(x => x.FirstName, "Jack");
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new DistinctOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -544,7 +548,8 @@ namespace MongoDB.Driver.Tests
             var filterDefinition = Builders<Person>.Filter.Eq("FirstName", "Jack");
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new FindOptions<Person>(); // no projection
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -621,7 +626,8 @@ namespace MongoDB.Driver.Tests
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var options = new FindOneAndDeleteOptions<Person>();
             var optionsWithProjection = new FindOneAndDeleteOptions<Person, BsonDocument>();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -745,7 +751,8 @@ namespace MongoDB.Driver.Tests
             var replacement = new Person();
             var options = new FindOneAndReplaceOptions<Person>();
             var optionsWithProjection = new FindOneAndReplaceOptions<Person, BsonDocument>();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -869,7 +876,8 @@ namespace MongoDB.Driver.Tests
             var update = Builders<Person>.Update.Set("FirstName", "John");
             var options = new FindOneAndUpdateOptions<Person>();
             var optionsWithProjection = new FindOneAndUpdateOptions<Person, BsonDocument>();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -988,7 +996,8 @@ namespace MongoDB.Driver.Tests
             var session = new Mock<IClientSessionHandle>().Object;
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var replacement = new Person();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             assertReplaceOne();
 
@@ -1109,7 +1118,8 @@ namespace MongoDB.Driver.Tests
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var update = Builders<Person>.Update.Set("FirstName", "John");
             var options = new UpdateOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -1151,7 +1161,8 @@ namespace MongoDB.Driver.Tests
             var filterExpression = (Expression<Func<Person, bool>>)(x => x.FirstName == "Jack");
             var update = Builders<Person>.Update.Set("FirstName", "John");
             var options = new UpdateOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -1191,7 +1202,8 @@ namespace MongoDB.Driver.Tests
             var collection = mockCollection.Object;
             var session = new Mock<IClientSessionHandle>().Object;
             var options = new ChangeStreamOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {
@@ -1221,15 +1233,9 @@ namespace MongoDB.Driver.Tests
             }
         }
 
-        private Mock<IMongoCollection<Person>> CreateMockCollection(int linqVersion = 2)
+        private Mock<IMongoCollection<Person>> CreateMockCollection(LinqProvider linqProvider = LinqProvider.V2)
         {
             var mockClient = new Mock<IMongoClient>();
-            var linqProvider = linqVersion switch
-            {
-                2 => LinqProvider.V2,
-                3 => LinqProvider.V3,
-                _ => throw new ArgumentException($"Invalid linqVersion: {linqVersion}.", nameof(linqVersion))
-            };
             var clientSettings = new MongoClientSettings { LinqProvider = linqProvider };
             mockClient.SetupGet(c => c.Settings).Returns(clientSettings);
 

@@ -23,14 +23,21 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using Moq;
 using Xunit;
+using Xunit.Sdk;
 
 namespace MongoDB.Bson.Tests.Serialization
 {
+    [Collection(RegisterObjectSerializerFixture.CollectionName)]
     public class ObjectSerializerTests
     {
+        private static Func<Type, bool> __defaultAllowedDeserializationTypes = ObjectSerializer.DefaultAllowedTypes;
+        private static Func<Type, bool> __defaultAllowedSerializationTypes = ObjectSerializer.DefaultAllowedTypes;
+        private static IDiscriminatorConvention __defaultDiscriminatorConvention = BsonSerializer.LookupDiscriminatorConvention(typeof(object));
+        private static GuidRepresentation __defaultGuidRepresentation = GuidRepresentation.Unspecified;
+
         public class C
         {
             public object Obj;
@@ -101,6 +108,19 @@ namespace MongoDB.Bson.Tests.Serialization
             var c = new C { Obj = BsonConstants.UnixEpoch };
             var json = c.ToJson();
             var expected = "{ 'Obj' : ISODate('1970-01-01T00:00:00Z') }".Replace("'", "\"");
+            Assert.Equal(expected, json);
+
+            var bson = c.ToBson();
+            var rehydrated = BsonSerializer.Deserialize<C>(bson);
+            Assert.True(bson.SequenceEqual(rehydrated.ToBson()));
+        }
+
+        [Fact]
+        public void TestDecimal()
+        {
+            var c = new C { Obj = 1.5M };
+            var json = c.ToJson();
+            var expected = "{ 'Obj' : NumberDecimal('1.5') }".Replace("'", "\"");
             Assert.Equal(expected, json);
 
             var bson = c.ToBson();
@@ -270,12 +290,14 @@ namespace MongoDB.Bson.Tests.Serialization
         }
 
         [Fact]
-        public void constructor_should_initialize_instance()
+        public void constructor_with_no_arguments_should_initialize_instance()
         {
             var subject = new ObjectSerializer();
 
-            subject._discriminatorConvention().Should().Be(BsonSerializer.LookupDiscriminatorConvention(typeof(object)));
-            subject._guidRepresentation().Should().Be(GuidRepresentation.Unspecified);
+            subject.AllowedDeserializationTypes.Should().BeSameAs(__defaultAllowedDeserializationTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(__defaultAllowedSerializationTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(__defaultDiscriminatorConvention);
+            subject.GuidRepresentation.Should().Be(__defaultGuidRepresentation);
         }
 
         [Fact]
@@ -285,14 +307,16 @@ namespace MongoDB.Bson.Tests.Serialization
 
             var subject = new ObjectSerializer(discriminatorConvention);
 
-            subject._discriminatorConvention().Should().BeSameAs(discriminatorConvention);
-            subject._guidRepresentation().Should().Be(GuidRepresentation.Unspecified);
+            subject.AllowedDeserializationTypes.Should().BeSameAs(__defaultAllowedDeserializationTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(__defaultAllowedSerializationTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(discriminatorConvention);
+            subject.GuidRepresentation.Should().Be(__defaultGuidRepresentation);
         }
 
         [Fact]
         public void constructor_with_discriminator_convention_should_throw_when_discriminator_convention_is_null()
         {
-            var exception = Record.Exception(() => new ObjectSerializer(null));
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null));
 
             var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
             e.ParamName.Should().Be("discriminatorConvention");
@@ -307,20 +331,176 @@ namespace MongoDB.Bson.Tests.Serialization
 
             var subject = new ObjectSerializer(discriminatorConvention, guidRepresentation);
 
-            subject._discriminatorConvention().Should().BeSameAs(discriminatorConvention);
-            subject._guidRepresentation().Should().Be(guidRepresentation);
+            subject.AllowedDeserializationTypes.Should().BeSameAs(__defaultAllowedDeserializationTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(__defaultAllowedSerializationTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(discriminatorConvention);
+            subject.GuidRepresentation.Should().Be(guidRepresentation);
         }
 
         [Fact]
         public void constructor_with_discriminator_convention_and_guid_representation_should_throw_when_discriminator_convention_is_null()
         {
-            var exception = Record.Exception(() => new ObjectSerializer(null, GuidRepresentation.Unspecified));
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null, GuidRepresentation.Unspecified));
 
             var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
             e.ParamName.Should().Be("discriminatorConvention");
         }
 
-        [SkippableTheory]
+        [Fact]
+        public void constructor_with_allowed_types_should_initialize_instance()
+        {
+            Func<Type, bool> allowedTypes = t => true;
+
+            var subject = new ObjectSerializer(allowedTypes);
+
+            subject.AllowedDeserializationTypes.Should().BeSameAs(allowedTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(allowedTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(__defaultDiscriminatorConvention);
+            subject.GuidRepresentation.Should().Be(__defaultGuidRepresentation);
+        }
+
+        [Fact]
+        public void constructor_with_allowed_types_should_throw_when_allowed_types_is_null()
+        {
+            var exception = Record.Exception(() => new ObjectSerializer(allowedTypes: null));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("allowedTypes");
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_allowed_types_should_initialize_instance()
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            Func<Type, bool> allowedTypes = t => true;
+
+            var subject = new ObjectSerializer(discriminatorConvention, allowedTypes);
+
+            subject.AllowedDeserializationTypes.Should().BeSameAs(allowedTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(allowedTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(discriminatorConvention);
+            subject.GuidRepresentation.Should().Be(__defaultGuidRepresentation);
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_allowed_types_should_throw_when_discriminator_convention_is_null()
+        {
+            Func<Type, bool> allowedTypes = t => true;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null, allowedTypes));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("discriminatorConvention");
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_allowed_types_should_throw_when_allowed_types_is_null()
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention, allowedTypes: null));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("allowedTypes");
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_allowed_types_should_initialize_instance(
+            [Values(GuidRepresentation.CSharpLegacy, GuidRepresentation.Standard, GuidRepresentation.Unspecified)] GuidRepresentation guidRepresentation)
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            Func<Type, bool> allowedTypes = t => true;
+
+            var subject = new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedTypes);
+
+            subject.AllowedDeserializationTypes.Should().BeSameAs(allowedTypes);
+            subject.AllowedSerializationTypes.Should().BeSameAs(allowedTypes);
+            subject.DiscriminatorConvention.Should().BeSameAs(discriminatorConvention);
+            subject.GuidRepresentation.Should().Be(guidRepresentation);
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_allowed_types_should_throw_when_discriminator_convention_is_null()
+        {
+            var guidRepresentation = GuidRepresentation.Standard;
+            Func<Type, bool> allowedTypes = t => true;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null, guidRepresentation, allowedTypes));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("discriminatorConvention");
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_allowed_types_should_throw_when_allowed_types_is_null()
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            var guidRepresentation = GuidRepresentation.Standard;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null, guidRepresentation, allowedTypes: null));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("allowedTypes");
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_seperate_deserialization_and_serialization_allowed_types_should_initialize_instance(
+            [Values(GuidRepresentation.CSharpLegacy, GuidRepresentation.Standard, GuidRepresentation.Unspecified)] GuidRepresentation guidRepresentation)
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            Func<Type, bool> allowedTypes1 = t => true;
+            Func<Type, bool> allowedTypes2 = t => true;
+
+            var subject = new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedTypes1, allowedTypes2);
+
+            subject.AllowedDeserializationTypes.Should().BeSameAs(allowedTypes1);
+            subject.AllowedSerializationTypes.Should().BeSameAs(allowedTypes2);
+            subject.DiscriminatorConvention.Should().BeSameAs(discriminatorConvention);
+            subject.GuidRepresentation.Should().Be(guidRepresentation);
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_seperate_deserialization_and_serialization_allowed_types_should_throw_when_discriminator_convention_is_null()
+        {
+            var guidRepresentation = GuidRepresentation.Standard;
+            Func<Type, bool> allowedTypes1 = t => true;
+            Func<Type, bool> allowedTypes2 = t => true;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention: null, guidRepresentation, allowedTypes1, allowedTypes2));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("discriminatorConvention");
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_seperate_deserialization_and_serialization_allowed_types_should_throw_when_allowed_deserialization_types_is_null()
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            var guidRepresentation = GuidRepresentation.Standard;
+            Func<Type, bool> allowedTypes2 = t => true;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedDeserializationTypes: null, allowedTypes2));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("allowedDeserializationTypes");
+        }
+
+        [Fact]
+        public void constructor_with_discriminator_convention_and_guid_representation_and_seperate_deserialization_and_serialiazation_allowed_types_should_throw_when_allowed_serialization_types_is_null()
+        {
+            var discriminatorConvention = Mock.Of<IDiscriminatorConvention>();
+            var guidRepresentation = GuidRepresentation.Standard;
+            Func<Type, bool> allowedTypes1 = t => true;
+
+            var exception = Record.Exception(() => new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedTypes1, allowedSerializationTypes: null));
+
+            var e = exception.Should().BeOfType<ArgumentNullException>().Subject;
+            e.ParamName.Should().Be("allowedSerializationTypes");
+        }
+
+        [Theory]
         [ParameterAttributeData]
         [ResetGuidModeAfterTest]
         public void Deserialize_binary_data_should_return_expected_result_when_guid_representation_is_unspecified_and_mode_is_v2(
@@ -361,6 +541,56 @@ namespace MongoDB.Bson.Tests.Serialization
                 result.Should().Be(expectedResult);
             }
 #pragma warning restore 618
+        }
+
+        [Fact]
+        public void Equals_should_return_true_when_instances_are_equal()
+        {
+            var discriminatorConvention = new ScalarDiscriminatorConvention("_t");
+            var subject1 = new ObjectSerializer(discriminatorConvention, GuidRepresentation.Standard, ObjectSerializer.DefaultAllowedTypes);
+            var subject2 = new ObjectSerializer(discriminatorConvention, GuidRepresentation.Standard, ObjectSerializer.DefaultAllowedTypes);
+
+            var result = subject1.Equals(subject2);
+            var hashCode1 = subject1.GetHashCode();
+            var hashCode2 = subject2.GetHashCode();
+
+            result.Should().BeTrue();
+            hashCode2.Should().Be(hashCode1); // required by the contract of Equals
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void Equals_should_return_false_when_instances_are_not_equal(
+            [Values("allowedTypes", "discriminatorConvention", "guidRepresentation")]
+            string notEqualFieldName)
+        {
+            IDiscriminatorConvention discriminatorConvention = new ScalarDiscriminatorConvention("_t");
+            var guidRepresentation = GuidRepresentation.Standard;
+            var allowedTypes = ObjectSerializer.DefaultAllowedTypes;
+            var subject1 = new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedTypes);
+
+            switch (notEqualFieldName)
+            {
+                case "allowedTypes": allowedTypes = ObjectSerializer.NoAllowedTypes; break;
+                case "discriminatorConvention": discriminatorConvention = new HierarchicalDiscriminatorConvention("_t"); break;
+                case "guidRepresentation": guidRepresentation = GuidRepresentation.CSharpLegacy; break;
+                default: throw new ArgumentException($"Invalid notEqualFieldName: {notEqualFieldName}.", nameof(notEqualFieldName));
+            }
+            var subject2 = new ObjectSerializer(discriminatorConvention, guidRepresentation, allowedTypes);
+
+            var result = subject1.Equals(subject2);
+            var hashCode1 = subject1.GetHashCode();
+            var hashCode2 = subject2.GetHashCode();
+
+            result.Should().BeFalse();
+            if (notEqualFieldName == "allowedTypes")
+            {
+                hashCode2.Should().Be(hashCode1); // because allowedTypes is not part of the hash code computation
+            }
+            else
+            {
+                hashCode2.Should().NotBe(hashCode1); // not strictly required but desirable
+            }
         }
 
         [Theory]
@@ -462,7 +692,7 @@ namespace MongoDB.Bson.Tests.Serialization
 #pragma warning restore 618
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         [ResetGuidModeAfterTest]
         public void Serialize_guid_should_have_expected_result_when_guid_representation_is_unspecified_and_mode_is_v2(
@@ -572,11 +802,5 @@ namespace MongoDB.Bson.Tests.Serialization
             }
 #pragma warning restore 618
         }
-    }
-
-    internal static class ObjectSerializerReflector
-    {
-        public static IDiscriminatorConvention _discriminatorConvention(this ObjectSerializer obj) => (IDiscriminatorConvention)Reflector.GetFieldValue(obj, nameof(_discriminatorConvention));
-        public static GuidRepresentation _guidRepresentation(this ObjectSerializer obj) => (GuidRepresentation)Reflector.GetFieldValue(obj, nameof(_guidRepresentation));
     }
 }

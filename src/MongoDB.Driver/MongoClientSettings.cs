@@ -53,6 +53,7 @@ namespace MongoDB.Driver
         private LinqProvider _linqProvider;
         private bool _loadBalanced;
         private TimeSpan _localThreshold;
+        private LoggingSettings _loggingSettings;
         private int _maxConnecting;
         private TimeSpan _maxConnectionIdleTime;
         private TimeSpan _maxConnectionLifeTime;
@@ -109,7 +110,7 @@ namespace MongoDB.Driver
             _heartbeatInterval = ServerSettings.DefaultHeartbeatInterval;
             _heartbeatTimeout = ServerSettings.DefaultHeartbeatTimeout;
             _ipv6 = false;
-            _linqProvider = LinqProvider.V2;
+            _linqProvider = LinqProvider.V3;
             _loadBalanced = false;
             _localThreshold = MongoDefaults.LocalThreshold;
             _maxConnecting = MongoInternalDefaults.ConnectionPool.MaxConnecting;
@@ -449,6 +450,19 @@ namespace MongoDB.Driver
         }
 
         /// <summary>
+        /// Gets or sets the logging settings
+        /// </summary>
+        public LoggingSettings LoggingSettings
+        {
+            get { return _loggingSettings; }
+            set
+            {
+                if (_isFrozen) { throw new InvalidOperationException("MongoClientSettings is frozen."); }
+                _loggingSettings = value;
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the maximum concurrently connecting connections.
         /// </summary>
         public int MaxConnecting
@@ -614,6 +628,7 @@ namespace MongoDB.Driver
         /// <summary>
         /// Gets or set the name of the SDAM log file. Null turns logging off. stdout will log to console.
         /// </summary>
+        [Obsolete("Use LoggerFactory instead.")]
         public string SdamLogFilename
         {
             get { return _sdamLogFilename; }
@@ -943,7 +958,7 @@ namespace MongoDB.Driver
             clientSettings.HeartbeatInterval = url.HeartbeatInterval;
             clientSettings.HeartbeatTimeout = url.HeartbeatTimeout;
             clientSettings.IPv6 = url.IPv6;
-            clientSettings.LinqProvider = LinqProvider.V2;
+            clientSettings.LinqProvider = LinqProvider.V3;
             clientSettings.LoadBalanced = url.LoadBalanced;
             clientSettings.LocalThreshold = url.LocalThreshold;
             clientSettings.MaxConnecting = url.MaxConnecting;
@@ -1002,6 +1017,7 @@ namespace MongoDB.Driver
             clone._linqProvider = _linqProvider;
             clone._loadBalanced = _loadBalanced;
             clone._localThreshold = _localThreshold;
+            clone._loggingSettings = _loggingSettings;
             clone._maxConnecting = _maxConnecting;
             clone._maxConnectionIdleTime = _maxConnectionIdleTime;
             clone._maxConnectionLifeTime = _maxConnectionLifeTime;
@@ -1070,6 +1086,7 @@ namespace MongoDB.Driver
                 _linqProvider == rhs._linqProvider &&
                 _loadBalanced == rhs._loadBalanced &&
                 _localThreshold == rhs._localThreshold &&
+                _loggingSettings == rhs._loggingSettings &&
                 _maxConnecting == rhs._maxConnecting &&
                 _maxConnectionIdleTime == rhs._maxConnectionIdleTime &&
                 _maxConnectionLifeTime == rhs._maxConnectionLifeTime &&
@@ -1077,7 +1094,7 @@ namespace MongoDB.Driver
                 _minConnectionPoolSize == rhs._minConnectionPoolSize &&
                 object.Equals(_readEncoding, rhs._readEncoding) &&
                 object.Equals(_readConcern, rhs._readConcern) &&
-                _readPreference == rhs._readPreference &&
+                object.Equals(_readPreference, rhs._readPreference) &&
                 _replicaSetName == rhs._replicaSetName &&
                 _retryReads == rhs._retryReads &&
                 _retryWrites == rhs._retryWrites &&
@@ -1092,7 +1109,7 @@ namespace MongoDB.Driver
                 _useTls == rhs._useTls &&
                 _waitQueueSize == rhs._waitQueueSize &&
                 _waitQueueTimeout == rhs._waitQueueTimeout &&
-                _writeConcern == rhs._writeConcern &&
+                object.Equals(_writeConcern, rhs._writeConcern) &&
                 object.Equals(_writeEncoding, rhs._writeEncoding);
         }
 
@@ -1284,13 +1301,14 @@ namespace MongoDB.Driver
                 _connectionModeSwitch,
                 _connectTimeout,
                 _credentials.ToList(),
+                _autoEncryptionOptions?.ToCryptClientSettings(),
                 _directConnection,
                 _heartbeatInterval,
                 _heartbeatTimeout,
                 _ipv6,
-                _autoEncryptionOptions?.KmsProviders,
                 _loadBalanced,
                 _localThreshold,
+                _loggingSettings,
                 _maxConnecting,
                 _maxConnectionIdleTime,
                 _maxConnectionLifeTime,
@@ -1298,7 +1316,6 @@ namespace MongoDB.Driver
                 _minConnectionPoolSize,
                 MongoDefaults.TcpReceiveBufferSize, // TODO: add ReceiveBufferSize to MongoClientSettings?
                 _replicaSetName,
-                _autoEncryptionOptions?.SchemaMap,
                 _scheme,
                 _sdamLogFilename,
                 MongoDefaults.TcpSendBufferSize, // TODO: add SendBufferSize to MongoClientSettings?

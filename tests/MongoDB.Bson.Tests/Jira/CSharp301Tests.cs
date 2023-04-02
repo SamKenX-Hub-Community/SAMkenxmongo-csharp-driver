@@ -15,12 +15,13 @@
 
 using System.Collections;
 using System.Collections.Generic;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.TestHelpers;
 using Xunit;
 
 namespace MongoDB.Bson.Tests.Jira
 {
+    [Collection(RegisterObjectSerializerFixture.CollectionName)]
     public class CSharp301Tests
     {
         public class C
@@ -60,7 +61,7 @@ namespace MongoDB.Bson.Tests.Jira
         {
             var c = new C { Id = 1, Obj = new Hashtable { } };
             var json = c.ToJson();
-#if NET472 || NETCOREAPP3_1
+#if NET472 || NETCOREAPP3_1_OR_GREATER
             // Hashtable is situated in well-known libraries for:
             // - NET472: mscorlib
             // - NETCOREAPP3_1: System.Private.CoreLib
@@ -81,7 +82,7 @@ namespace MongoDB.Bson.Tests.Jira
         {
             var c = new C { Id = 1, Obj = new Hashtable { { "x", 1 } } };
             var json = c.ToJson();
-#if NET472 || NETCOREAPP3_1
+#if NET472 || NETCOREAPP3_1_OR_GREATER
             // Hashtable is situated in well-known libraries for:
             // - NET472: mscorlib
             // - NETCOREAPP3_1: System.Private.CoreLib

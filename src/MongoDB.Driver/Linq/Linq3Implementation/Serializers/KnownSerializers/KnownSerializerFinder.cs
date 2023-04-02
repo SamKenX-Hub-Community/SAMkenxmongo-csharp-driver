@@ -20,6 +20,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver.Linq.Linq3Implementation.Misc;
 using MongoDB.Driver.Linq.Linq3Implementation.Reflection;
+using MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggregationExpressionTranslators;
 using ExpressionVisitor = System.Linq.Expressions.ExpressionVisitor;
 
 namespace MongoDB.Driver.Linq.Linq3Implementation.Serializers.KnownSerializers
@@ -58,7 +59,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Serializers.KnownSerializers
                 return null;
             }
 
-            _currentKnownSerializersNode = new KnownSerializersNode(_currentKnownSerializersNode);
+            _currentKnownSerializersNode = new KnownSerializersNode(node, _currentKnownSerializersNode);
 
             if (node == _root)
             {
@@ -67,27 +68,67 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Serializers.KnownSerializers
 
             var result = base.Visit(node);
             _registry.Add(node, _currentKnownSerializersNode);
-            _currentKnownSerializersNode = _currentKnownSerializersNode.Parent;
+
+            var parent = _currentKnownSerializersNode.Parent;
+            if (ShouldPropagateKnownSerializersToParent(parent))
+            {
+                parent.AddKnownSerializersFromChild(_currentKnownSerializersNode);
+            }
+            _currentKnownSerializersNode = parent;
+
+            return result;
+        }
+
+        protected override Expression VisitConditional(ConditionalExpression node)
+        {
+            var result = base.VisitConditional(node);
+
+            if (_currentKnownSerializersNode.KnownSerializers.TryGetValue(node.Type, out var resultSerializers) &&
+                resultSerializers.Count > 1)
+            {
+                var ifTrueSerializer = _registry.GetSerializerAtThisLevel(node.IfTrue);
+                var ifFalseSerializer = _registry.GetSerializerAtThisLevel(node.IfFalse);
+
+                if (ifTrueSerializer != null && ifFalseSerializer != null && !ifTrueSerializer.Equals(ifFalseSerializer))
+                {
+                    throw new ExpressionNotSupportedException(node, because: "IfTrue and IfFalse expressions have different serializers");
+                }
+
+                if (ifTrueSerializer != null)
+                {
+                    _currentKnownSerializersNode.SetKnownSerializerForType(node.Type, ifTrueSerializer);
+                }
+                else if (ifFalseSerializer != null)
+                {
+                    _currentKnownSerializersNode.SetKnownSerializerForType(node.Type, ifFalseSerializer);
+                }
+            }
+
             return result;
         }
 
         protected override Expression VisitMember(MemberExpression node)
         {
             var result = base.VisitMember(node);
-            if (_currentSerializer != null &&
-                _currentSerializer.TryGetMemberSerializationInfo(node.Member.Name, out var memberSerializationInfo))
-            {
-                _currentKnownSerializersNode.AddKnownSerializer(node.Type, memberSerializationInfo.Serializer);
 
-                if (memberSerializationInfo.Serializer is IBsonDocumentSerializer bsonDocumentSerializer)
+            var containerSerializer = _registry.GetSerializer(node.Expression);
+            if (containerSerializer is IBsonDocumentSerializer documentSerializer)
+            {
+                if (documentSerializer.TryGetMemberSerializationInfo(node.Member.Name, out var memberSerializationInfo))
                 {
-                    _currentSerializer = bsonDocumentSerializer;
-                }
-                else
-                {
-                    _currentSerializer = null;
+                    _currentKnownSerializersNode.AddKnownSerializer(node.Type, memberSerializationInfo.Serializer);
+
+                    if (memberSerializationInfo.Serializer is IBsonDocumentSerializer bsonDocumentSerializer)
+                    {
+                        _currentSerializer = bsonDocumentSerializer;
+                    }
+                    else
+                    {
+                        _currentSerializer = null;
+                    }
                 }
             }
+
             return result;
         }
 
@@ -165,6 +206,21 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Serializers.KnownSerializers
             }
 
             return result;
+        }
+
+        private bool ShouldPropagateKnownSerializersToParent(KnownSerializersNode parent)
+        {
+            if (parent == null)
+            {
+                return false;
+            }
+
+            return parent.Expression.NodeType switch
+            {
+                ExpressionType.MemberInit => false,
+                ExpressionType.New => false,
+                _ => true
+            };
         }
     }
 }

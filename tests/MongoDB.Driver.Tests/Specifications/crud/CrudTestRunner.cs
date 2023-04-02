@@ -28,6 +28,7 @@ using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using MongoDB.Driver.TestHelpers;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace MongoDB.Driver.Tests.Specifications.crud
 {
@@ -58,7 +59,7 @@ namespace MongoDB.Driver.Tests.Specifications.crud
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
@@ -145,7 +146,7 @@ namespace MongoDB.Driver.Tests.Specifications.crud
                         c.ConfigureServer(ss => ss.With(heartbeatInterval: Timeout.InfiniteTimeSpan));
                     };
                 },
-                CreateLogger<DisposableMongoClient>());
+                LoggingSettings);
         }
 
         private void ExecuteOperation(IMongoClient client, IMongoDatabase database, IMongoCollection<BsonDocument> collection, BsonDocument operation, BsonDocument outcome, bool async)

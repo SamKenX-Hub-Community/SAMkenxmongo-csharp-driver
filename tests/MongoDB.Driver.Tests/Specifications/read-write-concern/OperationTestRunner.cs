@@ -33,7 +33,7 @@ namespace MongoDB.Driver.Tests.Specifications.read_write_concern
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
@@ -44,7 +44,7 @@ namespace MongoDB.Driver.Tests.Specifications.read_write_concern
         public class TestCaseFactory : JsonDrivenTestCaseFactory
         {
             // protected properties
-            protected override string PathPrefix => "MongoDB.Driver.Tests.Specifications.read_write_concern.tests.";
+            protected override string PathPrefix => "MongoDB.Driver.Tests.Specifications.read_write_concern.tests.operation.";
 
             // protected methods
             protected override IEnumerable<JsonDrivenTestCase> CreateTestCases(BsonDocument document)

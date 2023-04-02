@@ -36,15 +36,21 @@ namespace MongoDB.Driver
             var result = new ChangeStreamDocumentSerializer<BsonDocument>(documentSerializer);
 
             result._documentSerializer().Should().BeSameAs(documentSerializer);
-            result._memberSerializationInfo().Count.Should().Be(8);
+            result._memberSerializationInfo().Count.Should().Be(14);
             AssertRegisteredMember(result, "ClusterTime", "clusterTime", BsonTimestampSerializer.Instance);
             AssertRegisteredMember(result, "CollectionNamespace", "ns", ChangeStreamDocumentCollectionNamespaceSerializer.Instance);
+            AssertRegisteredMember(result, "CollectionUuid", "ui", GuidSerializer.StandardInstance);
+            AssertRegisteredMember(result, "DatabaseNamespace", "ns", ChangeStreamDocumentDatabaseNamespaceSerializer.Instance);
+            AssertRegisteredMember(result, "DisambiguatedPaths", "disambiguatedPaths", BsonDocumentSerializer.Instance);
             AssertRegisteredMember(result, "DocumentKey", "documentKey", BsonDocumentSerializer.Instance);
             AssertRegisteredMember(result, "FullDocument", "fullDocument", documentSerializer);
+            AssertRegisteredMember(result, "FullDocumentBeforeChange", "fullDocumentBeforeChange", documentSerializer);
+            AssertRegisteredMember(result, "OperationDescription", "operationDescription", BsonDocumentSerializer.Instance);
             AssertRegisteredMember(result, "OperationType", "operationType", ChangeStreamOperationTypeSerializer.Instance);
             AssertRegisteredMember(result, "RenameTo", "to", ChangeStreamDocumentCollectionNamespaceSerializer.Instance);
             AssertRegisteredMember(result, "ResumeToken", "_id", BsonDocumentSerializer.Instance);
             AssertRegisteredMember(result, "UpdateDescription", "updateDescription", ChangeStreamUpdateDescriptionSerializer.Instance);
+            AssertRegisteredMember(result, "WallTime", "wallTime", DateTimeSerializer.UtcInstance);
         }
 
         [Fact]
@@ -107,6 +113,29 @@ namespace MongoDB.Driver
             firstElement.Name.Should().Be("x");
             firstElement.Value.Should().Be(1);
             var secondElement = fullDocument.GetElement(1);
+            secondElement.Name.Should().Be("x");
+            secondElement.Value.Should().Be(2);
+        }
+
+        [Fact]
+        public void Deserialize_should_support_duplicate_element_names_in_full_document_before_change()
+        {
+            var json = "{ fullDocumentBeforeChange : { x : 1, x : 2 } }";
+            var subject = CreateSubject();
+
+            ChangeStreamDocument<BsonDocument> result;
+            using (var reader = new JsonReader(json))
+            {
+                var context = BsonDeserializationContext.CreateRoot(reader);
+                result = subject.Deserialize(context);
+            }
+
+            var fullDocumentBeforeChange = result.FullDocumentBeforeChange;
+            fullDocumentBeforeChange.ElementCount.Should().Be(2);
+            var firstElement = fullDocumentBeforeChange.GetElement(0);
+            firstElement.Name.Should().Be("x");
+            firstElement.Value.Should().Be(1);
+            var secondElement = fullDocumentBeforeChange.GetElement(1);
             secondElement.Name.Should().Be("x");
             secondElement.Value.Should().Be(2);
         }

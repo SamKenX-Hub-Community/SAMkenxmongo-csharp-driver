@@ -66,7 +66,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToExecut
                 if (method.IsOneOf(__lastWithPredicateMethods))
                 {
                     var predicateLambda = ExpressionHelper.UnquoteLambda(arguments[1]);
-                    var predicateFilter = ExpressionToFilterTranslator.TranslateLambda(context, predicateLambda, parameterSerializer: pipeline.OutputSerializer);
+                    var predicateFilter = ExpressionToFilterTranslator.TranslateLambda(context, predicateLambda, parameterSerializer: pipeline.OutputSerializer, asRoot: true);
 
                     pipeline = pipeline.AddStages(
                         pipeline.OutputSerializer,
@@ -77,13 +77,12 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToExecut
                     pipeline.OutputSerializer,
                     AstStage.Group(
                         id: BsonNull.Value,
-                        fields: AstExpression.AccumulatorField("_last", AstAccumulatorOperator.Last, AstExpression.Var("ROOT"))));
+                        fields: AstExpression.AccumulatorField("_last", AstUnaryAccumulatorOperator.Last, AstExpression.Var("ROOT"))));
 
                 var finalizer = method.Name == "LastOrDefault" ? __singleOrDefaultFinalizer : __singleFinalizer;
 
                 return ExecutableQuery.Create(
-                    provider.Collection,
-                    provider.Options,
+                    provider,
                     pipeline,
                     finalizer);
             }

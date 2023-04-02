@@ -18,8 +18,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Events;
@@ -45,7 +46,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Unacknowledged_writes_should_not_have_transaction_id(
             [Values("delete", "insert", "update")] string operation,
@@ -108,7 +109,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Unsupported_single_statement_writes_should_not_have_transaction_id(
             [Values("deleteMany", "updateMany")] string operation,
@@ -158,7 +159,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Unsupported_multi_statement_writes_should_not_have_transaction_id(
             [Values("deleteMany", "updateMany")] string operation,
@@ -203,7 +204,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Aggregate_with_write_stage_should_not_have_transaction_id(
             [Values("$out", "$merge")] string outStage,
@@ -256,7 +257,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Supported_single_statement_writes_should_have_transaction_id(
             [Values("insertOne", "updateOne", "replaceOne", "deleteOne", "findOneAndDelete", "findOneAndReplace", "findOneAndUpdate")] string operation,
@@ -369,7 +370,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Supported_multi_statement_writes_should_have_transaction_id(
             [Values("insertMany", "bulkWrite")] string operation,
@@ -443,7 +444,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
                 settings.ClusterConfigurator = c => c.Subscribe(eventCapturer);
                 settings.RetryWrites = true;
             },
-            logger: LoggerFactory.CreateLogger<DisposableMongoClient>());
+            LoggingSettings);
         }
 
         private EventCapturer CreateEventCapturer()
@@ -469,13 +470,13 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             var client = DriverTestConfiguration.Client;
             var database = client.GetDatabase(_databaseName);
 
-            Logger.Debug("Dropping collection {0}", _collectionName);
+            Logger.LogDebug("Dropping collection {0}", _collectionName);
             database.DropCollection(_collectionName);
 
-            Logger.Debug("Creating collection {0}", _collectionName);
+            Logger.LogDebug("Creating collection {0}", _collectionName);
             database.CreateCollection(_collectionName);
 
-            Logger.Debug("Created collection {0}", _collectionName);
+            Logger.LogDebug("Created collection {0}", _collectionName);
         }
 
         private void DropCollection()
@@ -483,7 +484,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes.prose_tests
             var client = DriverTestConfiguration.Client;
             var database = client.GetDatabase(_databaseName);
 
-            Logger.Debug("Dropping collection {0}", _collectionName);
+            Logger.LogDebug("Dropping collection {0}", _collectionName);
             database.DropCollection(_collectionName);
         }
 

@@ -65,11 +65,6 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
             }
         }
 
-        public virtual AstNode VisitAccumulatorExpression(AstAccumulatorExpression node)
-        {
-            return node.Update(VisitAndConvert(node.Arg));
-        }
-
         public virtual AstNode VisitAccumulatorField(AstAccumulatorField node)
         {
             return node.Update(VisitAndConvert(node.Value));
@@ -152,6 +147,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitBinaryExpression(AstBinaryExpression node)
         {
             return node.Update(VisitAndConvert(node.Arg1), VisitAndConvert(node.Arg2));
+        }
+
+        public virtual AstNode VisitBinaryWindowExpression(AstBinaryWindowExpression node)
+        {
+            return node.Update(node.Operator, VisitAndConvert(node.Arg1), VisitAndConvert(node.Arg2), node.Window);
         }
 
         public virtual AstNode VisitBitsAllClearFilterOperation(AstBitsAllClearFilterOperation node)
@@ -289,6 +289,21 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
             return node.Update(VisitAndConvert(node.Date), VisitAndConvert(node.Unit), VisitAndConvert(node.BinSize), VisitAndConvert(node.Timezone), VisitAndConvert(node.StartOfWeek));
         }
 
+        public virtual AstNode VisitDensifyStage(AstDensifyStage node)
+        {
+            return node;
+        }
+
+        public virtual AstNode VisitDerivativeOrIntegralWindowExpression(AstDerivativeOrIntegralWindowExpression node)
+        {
+            return node.Update(node.Operator, VisitAndConvert(node.Arg), node.Unit, node.Window);
+        }
+
+        public virtual AstNode VisitDocumentsStage(AstDocumentsStage node)
+        {
+            return node.Update(VisitAndConvert(node.Documents));
+        }
+
         public virtual AstNode VisitElemMatchFilterOperation(AstElemMatchFilterOperation node)
         {
             return node.Update(VisitAndConvert(node.Filter));
@@ -297,6 +312,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitExistsFilterOperation(AstExistsFilterOperation node)
         {
             return node;
+        }
+
+        public virtual AstNode VisitExponentialMovingAverageWindowExpression(AstExponentialMovingAverageWindowExpression node)
+        {
+            return node.Update(VisitAndConvert(node.Arg), node.Weighting, node.Window);
         }
 
         public virtual AstNode VisitExprFilter(AstExprFilter node)
@@ -326,7 +346,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
 
         public virtual AstNode VisitFilterExpression(AstFilterExpression node)
         {
-            return node.Update(VisitAndConvert(node.Input), VisitAndConvert(node.Cond));
+            return node.Update(VisitAndConvert(node.Input), VisitAndConvert(node.Cond), VisitAndConvert(node.Limit));
         }
 
         public virtual AstNode VisitFilterField(AstFilterField node)
@@ -387,6 +407,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitGroupStage(AstGroupStage node)
         {
             return node.Update(VisitAndConvert(node.Id), VisitAndConvert(node.Fields));
+        }
+
+        public virtual AstNode VisitImpliedOperationFilterOperation(AstImpliedOperationFilterOperation node)
+        {
+            return node;
         }
 
         public virtual AstNode VisitIndexOfArrayExpression(AstIndexOfArrayExpression node)
@@ -519,6 +544,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
             return node.Update(VisitAndConvert(node.Operation));
         }
 
+        public virtual AstNode VisitNullaryWindowExpression(AstNullaryWindowExpression node)
+        {
+            return node;
+        }
+
         public virtual AstNode VisitOrExpression(AstOrExpression node)
         {
             return node.Update(VisitAndConvert(node.Args));
@@ -532,6 +562,16 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitOutStage(AstOutStage node)
         {
             return node;
+        }
+
+        public virtual AstNode VisitPickAccumulatorExpression(AstPickAccumulatorExpression node)
+        {
+            return node.Update(node.Operator, node.SortBy, VisitAndConvert(node.Selector), VisitAndConvert(node.N));
+        }
+
+        public virtual AstNode VisitPickExpression(AstPickExpression node)
+        {
+            return node.Update(node.Operator, VisitAndConvert(node.Source), VisitAndConvert(node.As), node.SortBy, VisitAndConvert(node.Selector), VisitAndConvert(node.N));
         }
 
         public virtual AstNode VisitPipeline(AstPipeline node)
@@ -629,9 +669,14 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
             return node.Update(VisitAndConvert(node.Fields));
         }
 
-        public virtual AstNode VisitSetWindowFieldsExpression(AstSetWindowFieldsWindowExpression node)
+        public virtual AstNode VisitSetWindowFieldsStage(AstSetWindowFieldsStage node)
         {
-            return node.Update(VisitAndConvert(node.Args));
+            return node.Update(VisitAndConvert(node.PartitionBy), node.SortBy, VisitAndConvert(node.Output));
+        }
+
+        public virtual AstNode VisitShiftWindowExpression(AstShiftWindowExpression node)
+        {
+            return node.Update(VisitAndConvert(node.Arg), node.By, VisitAndConvert(node.DefaultValue));
         }
 
         public virtual AstNode VisitSizeFilterOperation(AstSizeFilterOperation node)
@@ -647,6 +692,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitSliceExpression(AstSliceExpression node)
         {
             return node.Update(VisitAndConvert(node.Array), VisitAndConvert(node.Position), VisitAndConvert(node.N));
+        }
+
+        public virtual AstNode VisitSortArrayExpression(AstSortArrayExpression node)
+        {
+            return node.Update(VisitAndConvert(node.Input), node.Fields, node.Order);
         }
 
         public virtual AstNode VisitSortByCountStage(AstSortByCountStage node)
@@ -689,14 +739,29 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
             return node;
         }
 
+        public virtual AstNode VisitUnaryAccumulatorExpression(AstUnaryAccumulatorExpression node)
+        {
+            return node.Update(VisitAndConvert(node.Arg));
+        }
+
         public virtual AstNode VisitUnaryExpression(AstUnaryExpression node)
         {
             return node.Update(VisitAndConvert(node.Arg));
         }
 
+        public virtual AstNode VisitUnaryWindowExpression(AstUnaryWindowExpression node)
+        {
+            return node.Update(node.Operator, VisitAndConvert(node.Arg), node.Window);
+        }
+
         public virtual AstNode VisitUnionWithStage(AstUnionWithStage node)
         {
             return node.Update(VisitAndConvert(node.Pipeline));
+        }
+
+        public virtual AstNode VisitUniversalStage(AstUniversalStage node)
+        {
+            return node.Update(node.Stage);
         }
 
         public virtual AstNode VisitUnsetStage(AstUnsetStage node)
@@ -722,6 +787,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Visitors
         public virtual AstNode VisitWhereFilter(AstWhereFilter node)
         {
             return node;
+        }
+
+        public virtual AstNode VisitWindowField(AstWindowField node)
+        {
+            return node.Update(node.Path, VisitAndConvert(node.Value));
         }
 
         public virtual AstNode VisitZipExpression(AstZipExpression node)

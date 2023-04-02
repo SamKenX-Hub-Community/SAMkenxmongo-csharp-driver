@@ -14,15 +14,15 @@
 */
 
 using System;
+using System.Linq;
 using System.Threading;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Bindings;
 using MongoDB.Driver.Core.Clusters;
-using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
-using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
+using MongoDB.Driver.Core.Tests.Core.Operations;
 using Xunit;
 
 namespace MongoDB.Driver.Core.Operations
@@ -87,7 +87,10 @@ namespace MongoDB.Driver.Core.Operations
             subject.AutoIndexId.Should().NotHaveValue();
 #pragma warning restore
             subject.Capped.Should().NotHaveValue();
+            subject.ChangeStreamPreAndPostImages.Should().BeNull();
+            subject.ClusteredIndex.Should().BeNull();
             subject.Collation.Should().BeNull();
+            subject.EncryptedFields.Should().BeNull();
             subject.IndexOptionDefaults.Should().BeNull();
             subject.MaxDocuments.Should().NotHaveValue();
             subject.MaxSize.Should().NotHaveValue();
@@ -114,9 +117,8 @@ namespace MongoDB.Driver.Core.Operations
         {
             var subject = new CreateCollectionOperation(_collectionNamespace, _messageEncoderSettings);
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -138,9 +140,8 @@ namespace MongoDB.Driver.Core.Operations
             };
 #pragma warning restore
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -161,14 +162,58 @@ namespace MongoDB.Driver.Core.Operations
                 Capped = capped
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
                 { "create", _collectionNamespace.CollectionName },
                 { "capped", () => capped.Value, capped != null }
+            };
+            result.Should().Be(expectedResult);
+        }
+
+        [Fact]
+        public void CreateCommand_should_return_expected_result_when_ChangeStreamsPreAndPost_is_set()
+        {
+            var subject = new CreateCollectionOperation(_collectionNamespace, _messageEncoderSettings)
+            {
+                ChangeStreamPreAndPostImages = new BsonDocument()
+                {
+                    { "key", "value" }
+                }
+            };
+
+            var session = OperationTestHelper.CreateSession();
+
+            var result = subject.CreateCommand(session);
+
+            var expectedResult = new BsonDocument
+            {
+                { "create", _collectionNamespace.CollectionName },
+                { "changeStreamPreAndPostImages", new BsonDocument() { { "key", "value" } } }
+            };
+            result.Should().Be(expectedResult);
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void CreateCommand_should_return_expected_result_when_ClusteredIndex_is_set(
+            [Values(null, "{ key : { _id : 1 }, unique : true }", "{ key : { _id : 1 }, unique : true, name: 'clustered index name' }")]
+            string clusteredIndex)
+        {
+            var subject = new CreateCollectionOperation(_collectionNamespace, _messageEncoderSettings)
+            {
+                ClusteredIndex = clusteredIndex != null ? BsonDocument.Parse(clusteredIndex) : null
+            };
+            var session = OperationTestHelper.CreateSession();
+
+            var result = subject.CreateCommand(session);
+
+            var expectedResult = new BsonDocument
+            {
+                { "create", _collectionNamespace.CollectionName },
+                { "clusteredIndex", () => BsonDocument.Parse(clusteredIndex), clusteredIndex != null }
             };
             result.Should().Be(expectedResult);
         }
@@ -185,9 +230,8 @@ namespace MongoDB.Driver.Core.Operations
                 Collation = collation
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -209,9 +253,8 @@ namespace MongoDB.Driver.Core.Operations
                 IndexOptionDefaults = indexOptionDefaults
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -232,9 +275,8 @@ namespace MongoDB.Driver.Core.Operations
                 MaxDocuments = maxDocuments
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -255,9 +297,8 @@ namespace MongoDB.Driver.Core.Operations
                 MaxSize = maxSize
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -278,9 +319,8 @@ namespace MongoDB.Driver.Core.Operations
                 NoPadding = noPadding
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -302,9 +342,8 @@ namespace MongoDB.Driver.Core.Operations
                 StorageEngine = storageEngine
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -325,9 +364,8 @@ namespace MongoDB.Driver.Core.Operations
                 UsePowerOf2Sizes = usePowerOf2Sizes
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -348,9 +386,8 @@ namespace MongoDB.Driver.Core.Operations
                 ValidationAction = validationAction
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -371,9 +408,8 @@ namespace MongoDB.Driver.Core.Operations
                 ValidationLevel = validationLevel
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -395,9 +431,8 @@ namespace MongoDB.Driver.Core.Operations
                 Validator = validator
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -419,9 +454,8 @@ namespace MongoDB.Driver.Core.Operations
                 WriteConcern = writeConcern
             };
             var session = OperationTestHelper.CreateSession();
-            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
 
-            var result = subject.CreateCommand(session, connectionDescription);
+            var result = subject.CreateCommand(session);
 
             var expectedResult = new BsonDocument
             {
@@ -431,7 +465,136 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(expectedResult);
         }
 
-        [SkippableTheory]
+        [Fact]
+        public void CreateEncryptedCreateCollectionOperationIfConfigured_should_return_expected_result_when_EncryptedFields_is_null()
+        {
+            var subject = CreateCollectionOperation.CreateEncryptedCreateCollectionOperationIfConfigured(_collectionNamespace, encryptedFields: null, _messageEncoderSettings, null);
+            var session = OperationTestHelper.CreateSession();
+
+            var s = subject.Should().BeOfType<CreateCollectionOperation>().Subject;
+
+            var command = s.CreateCommand(session);
+
+            var expectedResult = new BsonDocument
+            {
+                { "create", _collectionNamespace.CollectionName },
+            };
+            command.Should().Be(expectedResult);
+        }
+
+        [Theory]
+        [InlineData(new[] { "'escCollection' : 'escCollectionName'", "escCollectionName" }, new[] { "'eccCollection' : 'eccCollectionName'", "eccCollectionName" }, new[] { "'ecocCollection' : 'ecocCollectionName'", "ecocCollectionName" })]
+        [InlineData(new[] { null, "esc" }, new[] { null, "ecc" }, new[] { null, "ecoc" })]
+        public void CreateEncryptedCreateCollectionOperationIfConfigured_should_return_expected_result_when_EncryptedFields_is_set(string[] escCollectionStrElement, string[] eccCollectionStrElement, string[] ecocCollectionStrElement)
+        {
+            var encryptedFields = BsonDocument.Parse($@"
+            {{
+                {GetFirstElementWithCommaOrEmpty(escCollectionStrElement)}
+                {GetFirstElementWithCommaOrEmpty(eccCollectionStrElement)}
+                {GetFirstElementWithCommaOrEmpty(ecocCollectionStrElement)}
+                ""fields"" :
+                [{{
+                    ""path"" : ""firstName"",
+                    ""keyId"" : {{ ""$binary"" : {{ ""subType"" : ""04"", ""base64"" : ""AAAAAAAAAAAAAAAAAAAAAA=="" }} }},
+                    ""bsonType"" : ""string"",
+                    ""queries"" : {{ ""queryType"" : ""equality"" }}
+                }},
+                {{
+                    ""path"" : ""ssn"",
+                    ""keyId"" : {{ ""$binary"" : {{ ""subType"" : ""04"", ""base64"": ""BBBBBBBBBBBBBBBBBBBBBB=="" }} }},
+                    ""bsonType"" : ""string""
+                }}]
+            }}");
+
+            var subject = CreateCollectionOperation.CreateEncryptedCreateCollectionOperationIfConfigured(_collectionNamespace, encryptedFields, _messageEncoderSettings, null);
+            var session = OperationTestHelper.CreateSession();
+
+            var operations = ((CompositeWriteOperation<BsonDocument>)subject)._operations<BsonDocument>();
+
+            // esc
+            AssertCreateCollectionCommand(
+                operations[0],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(escCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+            // ecc
+            AssertCreateCollectionCommand(
+                operations[1],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(eccCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+            // eco
+            AssertCreateCollectionCommand(
+                operations[2],
+                new CollectionNamespace(_collectionNamespace.DatabaseNamespace.DatabaseName, GetExpectedCollectionName(ecocCollectionStrElement)),
+                encryptedFields: null,
+                isMainOperation: false);
+            // main
+            AssertCreateCollectionCommand(
+                operations[3],
+                _collectionNamespace,
+                encryptedFields,
+                isMainOperation: true,
+                withClusteredIndex: false);
+            // __safeContent__
+            AssertIndex(operations[4], _collectionNamespace, index: new BsonDocument("__safeContent__", 1));
+
+            void AssertCreateCollectionCommand((IWriteOperation<BsonDocument> Operation, bool IsMainOperation) operationInfo, CollectionNamespace collectionNamespace, BsonDocument encryptedFields, bool isMainOperation, bool withClusteredIndex = true)
+            {
+                var expectedResult = new BsonDocument
+                {
+                    { "create", collectionNamespace.CollectionName },
+                    { "encryptedFields", encryptedFields, encryptedFields != null },
+                    { "clusteredIndex", new BsonDocument { { "key" , new BsonDocument("_id", 1 ) }, { "unique", true } }, withClusteredIndex }
+                };
+                AssertCommand(operationInfo, isMainOperation, expectedResult);
+            }
+
+            void AssertIndex((IWriteOperation<BsonDocument> Operation, bool IsMainOperation) operationInfo, CollectionNamespace collectionNamespace, BsonDocument index)
+            {
+                var expectedResult = new BsonDocument
+                {
+                    { "createIndexes", collectionNamespace.CollectionName },
+                    {
+                        "indexes",
+                        BsonArray.Create(new [] { new BsonDocument { { "key", index }, { "name", IndexNameHelper.GetIndexName(index) } } })
+                    }
+                };
+                AssertCommand(operationInfo, isMainOperation: false, expectedResult);
+            }
+
+            void AssertCommand((IWriteOperation<BsonDocument> Operation, bool IsMainOperation) operationInfo, bool isMainOperation, BsonDocument expectedResult)
+            {
+                operationInfo.IsMainOperation.Should().Be(isMainOperation);
+                var operation = operationInfo.Operation;
+
+                var result = operation switch
+                {
+                    CreateCollectionOperation createCollectionOperation => createCollectionOperation.CreateCommand(session),
+                    CreateIndexesOperation createIndexesOperation => createIndexesOperation.CreateCommand(session, OperationTestHelper.CreateConnectionDescription()),
+                    _ => throw new Exception($"Unexpected operation {operation}."),
+                };
+                result.Should().Be(expectedResult);
+            }
+
+            string GetFirstElementWithCommaOrEmpty(string[] array) => array.First() != null ? $"{array.First()}," : string.Empty;
+
+            string GetExpectedCollectionName(string[] array)
+            {
+                var first = array.First();
+                var last = array.Last();
+                if (first != null)
+                {
+                    return last;
+                }
+                else
+                {
+                    return $"enxcol_.{_collectionNamespace.CollectionName}.{last}";
+                }
+            }
+        }
+
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection(
             [Values(false, true)]
@@ -451,7 +614,7 @@ namespace MongoDB.Driver.Core.Operations
             info["name"].AsString.Should().Be(_collectionNamespace.CollectionName);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_AutoIndexId_is_set(
             [Values(false, true)]
@@ -478,7 +641,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["autoIndexId"].ToBoolean().Should().Be(autoIndexId);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_Capped_is_set(
             [Values(false, true)]
@@ -509,7 +672,7 @@ namespace MongoDB.Driver.Core.Operations
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_Collation_is_set(
             [Values(false, true)]
@@ -532,7 +695,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["collation"]["locale"].AsString.Should().Be("en_US");
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_IndexOptionDefaults_is_set(
             [Values(false, true)]
@@ -560,7 +723,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["indexOptionDefaults"].Should().Be(indexOptionDefaults);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_MaxDocuments_is_set(
             [Values(1L, 2L)]
@@ -587,7 +750,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["max"].ToInt64().Should().Be(maxDocuments);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_MaxSize_is_set(
             [Values(10000L, 20000L)]
@@ -613,7 +776,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["size"].ToInt64().Should().BeGreaterOrEqualTo(maxSize); // server rounds maxSize up
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_NoPadding_is_set(
             [Values(false, true)]
@@ -638,7 +801,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["flags"].Should().Be(noPadding ? 2 : 0);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_StorageEngine_is_set(
             [Values("abc", "def")]
@@ -667,7 +830,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["storageEngine"].Should().Be(storageEngine);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_UsePowerOf2Sizes_is_set(
             [Values(false, true)]
@@ -692,7 +855,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["flags"].Should().Be(usePowerOf2Sizes ? 1 : 0);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_create_collection_when_Validator_is_set(
             [Values(false, true)]
@@ -720,7 +883,7 @@ namespace MongoDB.Driver.Core.Operations
             info["options"]["validationAction"].AsString.Should().Be("error");
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_throw_when_a_write_concern_error_occurs(
             [Values(false, true)]
@@ -744,7 +907,7 @@ namespace MongoDB.Driver.Core.Operations
             exception.Should().BeOfType<MongoWriteConcernException>();
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_send_session_id_when_supported(
             [Values(false, true)] bool async)

@@ -11,7 +11,7 @@ title = "Connecting"
 
 ## Connection String
 
-The [connection string](http://docs.mongodb.org/manual/reference/connection-string/) is the simplest way to connect to one or more MongoDB servers. A connection string mostly follows [RFC 3986](http://tools.ietf.org/html/rfc3986) with the exception of the domain name. For MongoDB, it is possible to list multiple domain names separated by a comma. Below are some example connection strings
+The [connection string](https://www.mongodb.com/docs/manual/reference/connection-string/) is the simplest way to connect to one or more MongoDB servers. A connection string mostly follows [RFC 3986](http://tools.ietf.org/html/rfc3986) with the exception of the domain name. For MongoDB, it is possible to list multiple domain names separated by a comma. Below are some example connection strings
 
 
 - For a standalone mongod, mongos, or a direct connection to a member of a replica set:
@@ -52,7 +52,7 @@ mongodb://host:27017/?replicaSet=rs0&uuidRepresentation=standard
 
 The above connection string sets the `replicaSet` value to `rs0` and the `uuidRepresentation` to `standard`.
 
-For a comprehensive list of the available options, see the MongoDB [connection string](http://docs.mongodb.org/manual/reference/connection-string/) documentation.
+For a comprehensive list of the available options, see the MongoDB [connection string](https://www.mongodb.com/docs/manual/reference/connection-string/) documentation.
 
 
 ## Mongo Client
@@ -130,4 +130,4 @@ A majority of the methods and extension methods for an [`IMongoCollection<TDocum
 The implementation of [`IMongoCollection<TDocument>`]({{< apiref "T_MongoDB_Driver_IMongoCollection_1" >}}) ultimately provided by a [`MongoClient`]({{< apiref "T_MongoDB_Driver_MongoClient" >}}) is thread-safe and is safe to be stored globally or in an IoC container.
 
 ### Server API
-Starting from version 5.0 MongoDB servers support specifying API compatibility version. See [Versioned API]({{< relref "reference\driver\versioned_api.md" >}}).
+Starting from version 5.0 MongoDB servers support specifying API compatibility version. See [Stable API]({{< relref "reference\driver\stable_api.md" >}}).

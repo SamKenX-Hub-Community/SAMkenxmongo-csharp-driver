@@ -25,12 +25,18 @@ using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Compression;
 using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.Misc;
+using MongoDB.Driver.Core.TestHelpers.Logging;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace MongoDB.Driver.Tests
 {
-    public class ClusterRegistryTests
+    public class ClusterRegistryTests : LoggableTestClass
     {
+        public ClusterRegistryTests(ITestOutputHelper output) : base(output)
+        {
+        }
+
 #if WINDOWS
         [Fact]
         public void Instance_should_return_the_same_instance_every_time()
@@ -58,10 +64,19 @@ namespace MongoDB.Driver.Tests
             {
                 { "local", new Dictionary<string, object>() { { "key" , new byte[96] } } }
             };
-            var schemaMap = new Dictionary<string, BsonDocument>()
+            var dummyMap = new Dictionary<string, BsonDocument>()
             {
                 { "db.coll", new BsonDocument() }
             };
+
+            var cryptClientSettings = new CryptClientSettings(
+                bypassQueryAnalysis: true,
+                null,
+                null,
+                dummyMap,
+                false,
+                kmsProviders,
+                dummyMap);
 
             var clusterKey = new ClusterKey(
                 allowInsecureTls: false,
@@ -74,13 +89,14 @@ namespace MongoDB.Driver.Tests
 #pragma warning restore CS0618 // Type or member is obsolete
                 connectTimeout: TimeSpan.FromSeconds(1),
                 credentials: credentials,
+                cryptClientSettings: cryptClientSettings,
                 directConnection: null,
                 heartbeatInterval: TimeSpan.FromSeconds(2),
                 heartbeatTimeout: TimeSpan.FromSeconds(3),
                 ipv6: true,
-                kmsProviders: kmsProviders,
                 loadBalanced: false,
                 localThreshold: TimeSpan.FromSeconds(4),
+                loggingSettings: null,
                 maxConnecting: 3,
                 maxConnectionIdleTime: TimeSpan.FromSeconds(5),
                 maxConnectionLifeTime: TimeSpan.FromSeconds(6),
@@ -88,7 +104,6 @@ namespace MongoDB.Driver.Tests
                 minConnectionPoolSize: 8,
                 receiveBufferSize: 9,
                 replicaSetName: "rs",
-                schemaMap: schemaMap,
                 scheme: ConnectionStringScheme.MongoDB,
                 sdamLogFilename: "sdam.log",
                 sendBufferSize: 10,
@@ -115,12 +130,13 @@ namespace MongoDB.Driver.Tests
 #pragma warning disable CS0618 // Type or member is obsolete
                 cluster.Settings.ConnectionMode.Should().Be(clusterKey.ConnectionMode.ToCore());
 #pragma warning restore CS0618 // Type or member is obsolete
-                cluster.Settings.KmsProviders.Should().BeEquivalentTo(kmsProviders);
+                cluster.Settings.CryptClientSettings.EncryptedFieldsMap.Should().BeEquivalentTo(dummyMap);
+                cluster.Settings.CryptClientSettings.KmsProviders.Should().BeEquivalentTo(kmsProviders);
                 cluster.Settings.EndPoints.Should().Equal(expectedEndPoints);
                 cluster.Settings.LoadBalanced.Should().Be(clusterKey.LoadBalanced);
                 cluster.Settings.MaxServerSelectionWaitQueueSize.Should().Be(clusterKey.WaitQueueSize);
                 cluster.Settings.ReplicaSetName.Should().Be(clusterKey.ReplicaSetName);
-                cluster.Settings.SchemaMap.Should().BeEquivalentTo(schemaMap);
+                cluster.Settings.CryptClientSettings.SchemaMap.Should().BeEquivalentTo(dummyMap);
                 cluster.Settings.Scheme.Should().Be(clusterKey.Scheme);
                 cluster.Settings.ServerApi.Should().Be(clusterKey.ServerApi);
                 cluster.Settings.ServerSelectionTimeout.Should().Be(clusterKey.ServerSelectionTimeout);

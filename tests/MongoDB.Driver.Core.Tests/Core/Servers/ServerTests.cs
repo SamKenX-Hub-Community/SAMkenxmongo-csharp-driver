@@ -25,7 +25,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Bson.TestHelpers;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Bindings;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Clusters.ServerSelectors;
@@ -33,17 +33,20 @@ using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.ConnectionPools;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Events;
+using MongoDB.Driver.Core.Logging;
 using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.TestHelpers;
+using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.WireProtocol;
 using MongoDB.Driver.Core.WireProtocol.Messages.Encoders;
 using Moq;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace MongoDB.Driver.Core.Servers
 {
-    public class ServerTests
+    public class ServerTests : LoggableTestClass
     {
         private IClusterClock _clusterClock;
         private ClusterId _clusterId;
@@ -57,13 +60,14 @@ namespace MongoDB.Driver.Core.Servers
         private Mock<IConnectionPoolFactory> _mockConnectionPoolFactory;
         private EndPoint _endPoint;
         private EventCapturer _capturedEvents;
+        private EventLogger<LogCategories.SDAM> _eventLogger;
         private Mock<IServerMonitor> _mockServerMonitor;
         private Mock<IServerMonitorFactory> _mockServerMonitorFactory;
         private ServerApi _serverApi;
         private ServerSettings _settings;
         private DefaultServer _subject;
 
-        public ServerTests()
+        public ServerTests(ITestOutputHelper output) : base(output)
         {
             _clusterId = new ClusterId();
             _endPoint = new DnsEndPoint("localhost", 27017);
@@ -88,11 +92,17 @@ namespace MongoDB.Driver.Core.Servers
             _mockServerMonitorFactory.Setup(f => f.Create(It.IsAny<ServerId>(), _endPoint)).Returns(_mockServerMonitor.Object);
 
             _capturedEvents = new EventCapturer();
+            _eventLogger = CreateLogger<LogCategories.SDAM>().ToEventLogger(_capturedEvents);
             _serverApi = new ServerApi(ServerApiVersion.V1, true, true);
             _settings = new ServerSettings(heartbeatInterval: Timeout.InfiniteTimeSpan);
 
-            _subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            _subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
             _connectionId = new ConnectionId(_subject.ServerId);
+        }
+
+        protected override void DisposeInternal()
+        {
+            _subject.Dispose();
         }
 
         [Theory]
@@ -120,7 +130,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_not_throw_when_serverApi_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, null);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, null, _eventLogger);
 
             act.ShouldNotThrow();
         }
@@ -128,7 +138,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_settings_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, null, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, null, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -136,7 +146,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_clusterId_is_null()
         {
-            Action act = () => new DefaultServer(null, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(null, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -144,7 +154,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_clusterClock_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, null, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, null, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -152,7 +162,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_endPoint_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, null, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, null, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -160,7 +170,7 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_connectionPoolFactory_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, null, _mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, null, _mockServerMonitorFactory.Object, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -168,15 +178,15 @@ namespace MongoDB.Driver.Core.Servers
         [Fact]
         public void Constructor_should_throw_when_serverMonitorFactory_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, null, _capturedEvents, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, null, _serverApi, _eventLogger);
 
             act.ShouldThrow<ArgumentNullException>();
         }
 
         [Fact]
-        public void Constructor_should_throw_when_eventSubscriber_is_null()
+        public void Constructor_should_throw_when_eventLogger_is_null()
         {
-            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, null, _serverApi);
+            Action act = () => new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, _mockConnectionPoolFactory.Object, _mockServerMonitorFactory.Object, _serverApi, null);
 
             act.ShouldThrow<ArgumentNullException>();
         }
@@ -221,8 +231,8 @@ namespace MongoDB.Driver.Core.Servers
                 _endPoint,
                 mockConnectionPoolFactory.Object,
                 _mockServerMonitorFactory.Object,
-                _capturedEvents,
-                _serverApi);
+                _serverApi,
+                _eventLogger);
 
             var exceptionToThrow = new MongoAuthenticationException(connectionId, "Invalid login.");
             mockConnectionPool
@@ -233,7 +243,7 @@ namespace MongoDB.Driver.Core.Servers
                 .Setup(p => p.AcquireConnectionAsync(It.IsAny<CancellationToken>()))
                 .Callback(() => server.HandleExceptionOnOpen(exceptionToThrow))
                 .Throws(exceptionToThrow);
-            mockConnectionPool.Setup(p => p.Clear());
+            mockConnectionPool.Setup(p => p.Clear(It.IsAny<bool>()));
 
             server.Initialize();
 
@@ -250,7 +260,7 @@ namespace MongoDB.Driver.Core.Servers
             });
 
             exception.Should().BeOfType<MongoAuthenticationException>();
-            mockConnectionPool.Verify(p => p.Clear(), Times.Once());
+            mockConnectionPool.Verify(p => p.Clear(It.IsAny<bool>()), Times.Once());
         }
 
         [Theory]
@@ -378,15 +388,17 @@ namespace MongoDB.Driver.Core.Servers
 
             var openConnectionException = new MongoConnectionException(connectionId, "Oops", new IOException("Cry", innerMostException));
             var mockConnection = new Mock<IConnectionHandle>();
+            mockConnection.Setup(c => c.ConnectionId).Returns(connectionId);
             mockConnection.Setup(c => c.Open(It.IsAny<CancellationToken>())).Throws(openConnectionException);
             mockConnection.Setup(c => c.OpenAsync(It.IsAny<CancellationToken>())).ThrowsAsync(openConnectionException);
 
             var connectionFactory = new Mock<IConnectionFactory>();
+            connectionFactory.Setup(f => f.ConnectionSettings).Returns(() => new ConnectionSettings());
             connectionFactory.Setup(cf => cf.CreateConnection(serverId, _endPoint)).Returns(mockConnection.Object);
 
             var mockExceptionHandler = new Mock<IConnectionExceptionHandler>();
             var connectionPoolSettings = new ConnectionPoolSettings();
-            var connectionPool = new ExclusiveConnectionPool(serverId, _endPoint, connectionPoolSettings, connectionFactory.Object, new EventAggregator(), mockExceptionHandler.Object);
+            var connectionPool = new ExclusiveConnectionPool(serverId, _endPoint, connectionPoolSettings, connectionFactory.Object, mockExceptionHandler.Object, CreateLogger<LogCategories.Connection>().ToEventLogger(null));
 
             var mockConnectionPoolFactory = new Mock<IConnectionPoolFactory>();
             mockConnectionPoolFactory
@@ -399,7 +411,7 @@ namespace MongoDB.Driver.Core.Servers
             var mockServerMonitorFactory = new Mock<IServerMonitorFactory>();
             mockServerMonitorFactory.Setup(f => f.Create(It.IsAny<ServerId>(), _endPoint)).Returns(mockServerMonitor.Object);
 
-            var subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, mockConnectionPoolFactory.Object, mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            var subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, mockConnectionPoolFactory.Object, mockServerMonitorFactory.Object, _serverApi, _eventLogger);
             connectionPool._connectionExceptionHandler(subject);
             subject.Initialize();
             connectionPool.SetReady();
@@ -459,7 +471,7 @@ namespace MongoDB.Driver.Core.Servers
             mockServerMonitor.SetupGet(m => m.Lock).Returns(new object());
             var mockServerMonitorFactory = new Mock<IServerMonitorFactory>();
             mockServerMonitorFactory.Setup(f => f.Create(It.IsAny<ServerId>(), _endPoint)).Returns(mockServerMonitor.Object);
-            var subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, mockConnectionPoolFactory.Object, mockServerMonitorFactory.Object, _capturedEvents, _serverApi);
+            var subject = new DefaultServer(_clusterId, _clusterClock, _clusterConnectionMode, _connectionModeSwitch, _directConnection, _settings, _endPoint, mockConnectionPoolFactory.Object, mockServerMonitorFactory.Object, _serverApi, _eventLogger);
             subject.Initialize();
             var heartbeatDescription = mockMonitorServerInitialDescription.With(reasonChanged: "Heartbeat", type: ServerType.Standalone);
             mockServerMonitor.Setup(m => m.Description).Returns(heartbeatDescription);
@@ -500,7 +512,7 @@ namespace MongoDB.Driver.Core.Servers
             _capturedEvents.Clear();
 
             _subject.Invalidate("Test", responseTopologyDescription: null);
-            _mockConnectionPool.Verify(p => p.Clear(), Times.Once);
+            _mockConnectionPool.Verify(p => p.Clear(It.IsAny<bool>()), Times.Once);
         }
 
         [Fact]
@@ -522,7 +534,7 @@ namespace MongoDB.Driver.Core.Servers
                 .With(heartbeatException: new Exception("ughhh"));
             _mockServerMonitor.Raise(m => m.DescriptionChanged += null, new ServerDescriptionChangedEventArgs(description, description));
 
-            _mockConnectionPool.Verify(p => p.Clear(), Times.Once);
+            _mockConnectionPool.Verify(p => p.Clear(It.IsAny<bool>()), Times.Once);
         }
 
         [Theory]
@@ -685,7 +697,7 @@ namespace MongoDB.Driver.Core.Servers
             var onDescriptionChangedCalled = false;
             EventHandler<ServerDescriptionChangedEventArgs> onDescriptionChanged = (_, __) =>
             {
-                _mockConnectionPool.Verify(pool => pool.Clear(), Times.Never);
+                _mockConnectionPool.Verify(pool => pool.Clear(It.IsAny<bool>()), Times.Never);
                 onDescriptionChangedCalled = true;
             };
 
@@ -696,7 +708,7 @@ namespace MongoDB.Driver.Core.Servers
                 _subject.Initialize();
                 _subject.Invalidate("Test reason", null);
 
-                _mockConnectionPool.Verify(pool => pool.Clear(), Times.Once);
+                _mockConnectionPool.Verify(pool => pool.Clear(It.IsAny<bool>()), Times.Once);
                 onDescriptionChangedCalled.Should().BeTrue();
             }
             finally
@@ -837,7 +849,7 @@ namespace MongoDB.Driver.Core.Servers
                 mockConnectionPool
                     .Setup(p => p.AcquireConnectionAsync(It.IsAny<CancellationToken>()))
                     .Throws(new TimeoutException("Timeout"));
-                mockConnectionPool.Setup(p => p.Clear());
+                mockConnectionPool.Setup(p => p.Clear(It.IsAny<bool>()));
             }
             else if (exceptionOnConnectionOpen)
             {
@@ -847,7 +859,7 @@ namespace MongoDB.Driver.Core.Servers
                 mockConnectionPool
                     .Setup(p => p.AcquireConnectionAsync(It.IsAny<CancellationToken>()))
                     .Throws(new MongoAuthenticationException(connectionId, "Invalid login."));
-                mockConnectionPool.Setup(p => p.Clear());
+                mockConnectionPool.Setup(p => p.Clear(It.IsAny<bool>()));
             }
             else
             {
@@ -857,7 +869,7 @@ namespace MongoDB.Driver.Core.Servers
                 mockConnectionPool
                     .Setup(p => p.AcquireConnectionAsync(It.IsAny<CancellationToken>()))
                     .Returns(Task.FromResult(mockConnectionHandle.Object));
-                mockConnectionPool.Setup(p => p.Clear());
+                mockConnectionPool.Setup(p => p.Clear(It.IsAny<bool>()));
             }
 
             var mockConnectionPoolFactory = new Mock<IConnectionPoolFactory>();
@@ -875,8 +887,8 @@ namespace MongoDB.Driver.Core.Servers
                 _endPoint,
                 mockConnectionPoolFactory.Object,
                 _mockServerMonitorFactory.Object,
-                _capturedEvents,
-                _serverApi);
+                _serverApi,
+                _eventLogger);
             server.Initialize();
 
             return server;
@@ -885,7 +897,7 @@ namespace MongoDB.Driver.Core.Servers
 
     public class ServerChannelTests
     {
-        [SkippableTheory]
+        [Theory]
         [InlineData(1, 2, 2)]
         [InlineData(2, 1, 2)]
         public void Command_should_send_the_greater_of_the_session_and_cluster_cluster_times(long sessionTimestamp, long clusterTimestamp, long expectedTimestamp)
@@ -938,7 +950,7 @@ namespace MongoDB.Driver.Core.Servers
             actualClusterTime.Should().Be(expectedClusterTime);
         }
 
-        [SkippableFact]
+        [Fact]
         public void Command_should_update_the_session_and_cluster_cluster_times()
         {
             RequireServer.Check().ClusterTypes(ClusterType.ReplicaSet, ClusterType.Sharded);
@@ -975,7 +987,7 @@ namespace MongoDB.Driver.Core.Servers
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Command_should_use_serverApi([Values(false, true)] bool async)
         {

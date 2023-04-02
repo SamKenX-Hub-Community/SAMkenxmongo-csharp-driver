@@ -19,12 +19,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using MongoDB.Driver.TestHelpers;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace MongoDB.Driver.Tests.Specifications.retryable_writes
 {
@@ -42,7 +44,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void RunTestDefinition(TestCase testCase)
         {
@@ -88,7 +90,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes
             var database = client.GetDatabase(_databaseName);
             var collection = database.GetCollection<BsonDocument>(_collectionName);
 
-            Logger.Debug("Dropping colleciton");
+            Logger.LogDebug("Dropping colleciton");
 
             database.DropCollection(collection.CollectionNamespace.CollectionName);
             if (definition.TryGetValue("data", out var data) &&
@@ -101,7 +103,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes
 
         private void RunTest(BsonDocument test, bool async)
         {
-            Logger.Debug("Running test");
+            Logger.LogDebug("Running test");
 
             var useMultipleShardRouters = test.GetValue("useMultipleMongoses", false).AsBoolean;
             RequireServer.Check().MultipleMongosesIfSharded(required: useMultipleShardRouters);
@@ -137,7 +139,7 @@ namespace MongoDB.Driver.Tests.Specifications.retryable_writes
                     settings.HeartbeatInterval = TimeSpan.FromMilliseconds(5); // the default value for spec tests
                     ParseClientOptions(settings, clientOptions);
                 },
-                CreateLogger<DisposableMongoClient>(),
+                LoggingSettings,
                 useMultipleShardRouters);
         }
 

@@ -15,7 +15,7 @@
 
 using System;
 using FluentAssertions;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using Xunit;
 
 namespace MongoDB.Driver.Tests
@@ -27,6 +27,7 @@ namespace MongoDB.Driver.Tests
         {
             var result = new EstimatedDocumentCountOptions();
 
+            result.Comment.Should().BeNull();
             result.MaxTime.Should().NotHaveValue();
         }
 

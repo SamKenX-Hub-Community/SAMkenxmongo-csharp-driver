@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers.JsonDrivenTests;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.TestHelpers.Logging;
 using MongoDB.Driver.Tests.UnifiedTestOperations;
 using Xunit;
@@ -33,11 +34,17 @@ namespace MongoDB.Driver.Tests.Specifications.unified_test_format
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
-            using (var runner = new UnifiedTestRunner(loggerFactory: LoggerFactory))
+            if (testCase.Name.Contains("kmsProviders"))
+            {
+                // kmip requires configuring kms mock server
+                RequireEnvironment.Check().EnvironmentVariable("KMS_MOCK_SERVERS_ENABLED");
+            }
+
+            using (var runner = new UnifiedTestRunner(loggingService: this))
             {
                 runner.Run(testCase);
             }

@@ -19,12 +19,13 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.ConnectionPools;
 using MongoDB.Driver.Core.Connections;
-using MongoDB.Driver.Core.Events;
+using MongoDB.Driver.Core.Logging;
 using MongoDB.Driver.Core.Misc;
 
 namespace MongoDB.Driver.Core.Servers
@@ -58,8 +59,8 @@ namespace MongoDB.Driver.Core.Servers
             EndPoint endPoint,
             IConnectionPoolFactory connectionPoolFactory,
             IServerMonitorFactory monitorFactory,
-            IEventSubscriber eventSubscriber,
-            ServerApi serverApi)
+            ServerApi serverApi,
+            EventLogger<LogCategories.SDAM> eventLogger)
             : base(
                   clusterId,
                   clusterClock,
@@ -69,8 +70,8 @@ namespace MongoDB.Driver.Core.Servers
                   settings,
                   endPoint,
                   connectionPoolFactory,
-                  eventSubscriber,
-                  serverApi)
+                  serverApi,
+                  eventLogger)
         {
             _monitor = Ensure.IsNotNull(monitorFactory, nameof(monitorFactory)).Create(ServerId, endPoint);
             _baseDescription = _currentDescription = new ServerDescription(ServerId, endPoint, reasonChanged: "ServerInitialDescription", heartbeatInterval: settings.HeartbeatInterval);
@@ -171,6 +172,16 @@ namespace MongoDB.Driver.Core.Servers
                     $"InvalidatedBecause:{reasonInvalidated}",
                     lastUpdateTimestamp: DateTime.UtcNow,
                     topologyVersion: topologyVersion);
+
+            var (host, port) = ServerId.EndPoint.GetHostAndPort();
+            EventLogger.Logger?.LogDebug(
+                StructuredLogTemplateProviders.ServerId_Message_Description,
+                ServerId.ClusterId.Value,
+                host,
+                port,
+                newDescription,
+                "Invalidating description");
+
             SetDescription(newDescription, clearConnectionPool);
             // TODO: make the heartbeat request conditional so we adhere to this part of the spec
             // > Network error when reading or writing: ... Clients MUST NOT request an immediate check of the server;
@@ -217,7 +228,8 @@ namespace MongoDB.Driver.Core.Servers
                 TriggerServerDescriptionChanged(this, serverDescriptionChangedEvent);
 
                 // pool must be cleared on after cluster update
-                ConnectionPool.Clear();
+                var closeInUseConnections = newDescription.HeartbeatException is MongoConnectionException mongoConnectionException && mongoConnectionException.ContainsTimeoutException;
+                ConnectionPool.Clear(closeInUseConnections);
             }
             else
             {

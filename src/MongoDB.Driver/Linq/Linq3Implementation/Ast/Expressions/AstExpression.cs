@@ -61,14 +61,9 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstUnaryExpression(AstUnaryOperator.Abs, arg);
         }
 
-        public static AstAccumulatorExpression AccumulatorExpression(AstAccumulatorOperator @operator, AstExpression arg)
+        public static AstAccumulatorField AccumulatorField(string name, AstUnaryAccumulatorOperator @operator, AstExpression arg)
         {
-            return new AstAccumulatorExpression(@operator, arg);
-        }
-
-        public static AstAccumulatorField AccumulatorField(string name, AstAccumulatorOperator @operator, AstExpression arg)
-        {
-            var value = new AstAccumulatorExpression(@operator, arg);
+            var value = new AstUnaryAccumulatorExpression(@operator, arg);
             return new AstAccumulatorField(name, value);
         }
 
@@ -157,6 +152,16 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstUnaryExpression(AstUnaryOperator.Avg, array);
         }
 
+        public static AstExpression Binary(AstBinaryOperator @operator, AstExpression arg1, AstExpression arg2)
+        {
+            return new AstBinaryExpression(@operator, arg1, arg2);
+        }
+
+        public static AstExpression BinaryWindowExpression(AstBinaryWindowOperator @operator, AstExpression arg1, AstExpression arg2, AstWindow window)
+        {
+            return new AstBinaryWindowExpression(@operator, arg1, arg2, window);
+        }
+
         public static AstExpression Ceil(AstExpression arg)
         {
             return new AstUnaryExpression(AstUnaryOperator.Ceil, arg);
@@ -184,6 +189,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
         public static AstExpression ComputedArray(IEnumerable<AstExpression> items)
         {
             return new AstComputedArrayExpression(items);
+        }
+
+        public static AstExpression ComputedArray(params AstExpression[] items)
+        {
+            return ComputedArray((IEnumerable<AstExpression>)items);
         }
 
         public static AstExpression ComputedDocument(IEnumerable<AstComputedField> fields)
@@ -240,26 +250,34 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
 
         public static AstExpression Convert(AstExpression input, AstExpression to, AstExpression onError = null, AstExpression onNull = null)
         {
-            return new AstConvertExpression(input, to, onError, onNull);
-        }
+            Ensure.IsNotNull(input, nameof(input));
+            Ensure.IsNotNull(to, nameof(to));
 
-        public static AstExpression Convert(AstExpression input, Type toType, AstExpression onError = null, AstExpression onNull = null)
-        {
-            Ensure.IsNotNull(toType, nameof(toType));
-            var to = toType.FullName switch
+            if (to is AstConstantExpression toConstantExpression &&
+                (toConstantExpression.Value as BsonString)?.Value is string toValue &&
+                toValue != null &&
+                onError == null &&
+                onNull == null)
             {
-                "MongoDB.Bson.ObjectId" => "objectId",
-                "System.Boolean" => "bool",
-                "System.DateTime" => "date",
-                "System.Decimal" => "decimal",
-                "System.Double" => "double",
-                "System.Int32" => "int",
-                "System.Int64" => "long",
-                "System.String" => "string",
-                _ => throw new ArgumentException($"Invalid toType: {toType.FullName}.", nameof(toType))
-            };
+                var unaryOperator = toValue switch
+                {
+                    "bool" => AstUnaryOperator.ToBool,
+                    "date" => AstUnaryOperator.ToDate,
+                    "decimal" => AstUnaryOperator.ToDecimal,
+                    "double" => AstUnaryOperator.ToDouble,
+                    "int" => AstUnaryOperator.ToInt,
+                    "long" => AstUnaryOperator.ToLong,
+                    "objectId" => AstUnaryOperator.ToObjectId,
+                    "string" => AstUnaryOperator.ToString,
+                    _ => (AstUnaryOperator?)null
+                };
+                if (unaryOperator.HasValue)
+                {
+                    return AstExpression.Unary(unaryOperator.Value, input);
+                }
+            }
 
-            return AstExpression.Convert(input, to, onError, onNull);
+            return new AstConvertExpression(input, to, onError, onNull);
         }
 
         public static AstExpression DateAdd(
@@ -333,6 +351,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstDateTruncExpression(date, unit, binSize, timezone, startOfWeek);
         }
 
+        public static AstExpression DerivativeOrIntegralWindowExpression(AstDerivativeOrIntegralWindowOperator @operator, AstExpression arg, WindowTimeUnit? unit, AstWindow window)
+        {
+            return new AstDerivativeOrIntegralWindowExpression(@operator, arg, unit, window);
+        }
+
         public static AstExpression Divide(AstExpression arg1, AstExpression arg2)
         {
             if (arg1 is AstConstantExpression constant1 && arg2 is AstConstantExpression constant2)
@@ -370,14 +393,19 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstUnaryExpression(AstUnaryOperator.Exp, arg);
         }
 
+        public static AstExpression ExponentialMovingAverageWindowExpression(AstExpression arg, ExponentialMovingAverageWeighting weighting, AstWindow window)
+        {
+            return new AstExponentialMovingAverageWindowExpression(arg, weighting, window);
+        }
+
         public static AstFieldPathExpression FieldPath(string path)
         {
             return new AstFieldPathExpression(path);
         }
 
-        public static AstExpression Filter(AstExpression input, AstExpression cond, string @as)
+        public static AstExpression Filter(AstExpression input, AstExpression cond, string @as, AstExpression limit = null)
         {
-            return new AstFilterExpression(input, cond, @as);
+            return new AstFilterExpression(input, cond, @as, limit);
         }
 
         public static AstExpression First(AstExpression array)
@@ -566,6 +594,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstUnaryExpression(AstUnaryOperator.Not, arg);
         }
 
+        public static AstExpression NullaryWindowExpression(AstNullaryWindowOperator @operator, AstWindow window)
+        {
+            return new AstNullaryWindowExpression(@operator, window);
+        }
+
         public static AstExpression Or(params AstExpression[] args)
         {
             Ensure.IsNotNull(args, nameof(args));
@@ -590,6 +623,16 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             }
 
             return new AstOrExpression(args);
+        }
+
+        public static AstExpression PickExpression(AstPickOperator @operator, AstExpression source, AstSortFields sortBy, AstVarExpression @as, AstExpression selector, AstExpression n)
+        {
+            return new AstPickExpression(@operator, source, sortBy, @as, selector, n);
+        }
+
+        public static AstExpression PickAccumulatorExpression(AstPickAccumulatorOperator @operator, AstSortFields sortBy, AstExpression selector, AstExpression n)
+        {
+            return new AstPickAccumulatorExpression(@operator, sortBy, selector, n);
         }
 
         public static AstExpression Pow(AstExpression arg, AstExpression exponent)
@@ -647,9 +690,9 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return new AstNaryExpression(AstNaryOperator.SetUnion, args);
         }
 
-        public static AstSetWindowFieldsWindowExpression SetWindowFieldsWindowExpression(AstSetWindowFieldsOperator @operator, IEnumerable<AstExpression> args, AstSetWindowFieldsWindow window)
+        public static AstExpression ShiftWindowExpression(AstExpression arg, int by, AstExpression defaultValue)
         {
-            return new AstSetWindowFieldsWindowExpression(@operator, args, window);
+            return new AstShiftWindowExpression(arg, by, defaultValue);
         }
 
         public static AstExpression Size(AstExpression arg)
@@ -665,6 +708,21 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
         public static AstExpression Slice(AstExpression array, AstExpression position, AstExpression n)
         {
             return new AstSliceExpression(array, position, n);
+        }
+
+        public static AstExpression SortArray(AstExpression input, AstSortFields fields)
+        {
+            return new AstSortArrayExpression(input, fields);
+        }
+
+        public static AstExpression SortArray(AstExpression input, params AstSortField[] fields)
+        {
+            return new AstSortArrayExpression(input, new AstSortFields(fields));
+        }
+
+        public static AstExpression SortArray(AstExpression input, AstSortOrder order)
+        {
+            return new AstSortArrayExpression(input, order);
         }
 
         public static AstExpression Split(AstExpression arg, AstExpression delimiter)
@@ -792,6 +850,26 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
         public static AstExpression Trunc(AstExpression arg)
         {
             return new AstUnaryExpression(AstUnaryOperator.Trunc, arg);
+        }
+
+        public static AstExpression Type(AstExpression arg)
+        {
+            return new AstUnaryExpression(AstUnaryOperator.Type, arg);
+        }
+
+        public static AstExpression Unary(AstUnaryOperator @operator, AstExpression arg)
+        {
+            return new AstUnaryExpression(@operator, arg);
+        }
+
+        public static AstAccumulatorExpression UnaryAccumulator(AstUnaryAccumulatorOperator @operator, AstExpression arg)
+        {
+            return new AstUnaryAccumulatorExpression(@operator, arg);
+        }
+
+        public static AstExpression UnaryWindowExpression(AstUnaryWindowOperator @operator, AstExpression arg, AstWindow window)
+        {
+            return new AstUnaryWindowExpression(@operator, arg, window);
         }
 
         public static (AstVarBinding, AstExpression) UseVarIfNotSimple(string name, AstExpression expression)

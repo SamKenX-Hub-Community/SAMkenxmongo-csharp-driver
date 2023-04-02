@@ -15,11 +15,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using MongoDB.Bson;
 using MongoDB.Bson.TestHelpers.JsonDrivenTests;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Events;
 using MongoDB.Driver.Encryption;
 using MongoDB.Driver.TestHelpers;
@@ -30,6 +29,7 @@ using Xunit.Abstractions;
 namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
 {
     [Trait("Category", "CSFLE")]
+    [Trait("Category", "Serverless")]
     public class ClientSideEncryptionTestRunner : MongoClientJsonDrivenTestRunnerBase
     {
         #region static
@@ -42,7 +42,7 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
         {
         }
 
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
@@ -61,6 +61,14 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
 
             RequirePlatform
                 .Check()
+                .SkipWhen(
+                    // spec wording requires skipping only "fle2-Range-<type>-Correctness" tests on macos,
+                    // but we see significant performance downgrade with the rest fle2-Range tests too, so skip them as well
+                    () => testCase.Name.Contains("fle2-Range"),
+                    SupportedOperatingSystem.MacOS); ;
+
+            RequirePlatform
+                .Check()
                 .SkipWhen(() => testCase.Name.Contains("gcpKMS.json"), SupportedOperatingSystem.Linux, SupportedTargetFramework.NetStandard20) // gcp is supported starting from netstandard2.1
                 .SkipWhen(() => testCase.Name.Contains("gcpKMS.json"), SupportedOperatingSystem.MacOS, SupportedTargetFramework.NetStandard20); // gcp is supported starting from netstandard2.1
 
@@ -74,7 +82,7 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
             get
             {
                 var expectedSharedColumns = new List<string>(base.ExpectedSharedColumns);
-                expectedSharedColumns.AddRange(new[] { "json_schema", "key_vault_data" });
+                expectedSharedColumns.AddRange(new[] { "json_schema", "key_vault_data", "encrypted_fields" });
                 return expectedSharedColumns.ToArray();
             }
         }
@@ -99,6 +107,20 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
                 getPlaceholders: () => new KeyValuePair<string, BsonValue>[0]); // do not use placeholders
         }
 
+        protected override void AssertOperation(string name, JsonDrivenTest jsonDrivenTest)
+        {
+            switch (name)
+            {
+                case "findOneAndUpdate":
+                    {
+                        // ignore: "_id" and  "__safeContent__"
+                        jsonDrivenTest.Assert(allowExtraFields: true);
+                    }
+                    break;
+                default: base.AssertOperation(name, jsonDrivenTest); break;
+            }
+        }
+
         protected override MongoClient CreateClientForTestSetup()
         {
             var clientSettings = DriverTestConfiguration.GetClientSettings().Clone();
@@ -113,15 +135,23 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
 
         protected override void CreateCollection(IMongoClient client, string databaseName, string collectionName, BsonDocument test, BsonDocument shared)
         {
-            if (shared.TryGetElement("json_schema", out var jsonSchema))
+            var jsonSchema = shared.GetValue("json_schema", defaultValue: null);
+            var encrypted_fields = shared.GetValue("encrypted_fields", defaultValue: null);
+            if (jsonSchema != null || encrypted_fields != null)
             {
                 var database = client.GetDatabase(databaseName).WithWriteConcern(WriteConcern.WMajority);
-                var validatorSchema = new BsonDocument("$jsonSchema", jsonSchema.Value.ToBsonDocument());
+                BsonDocumentFilterDefinition<BsonDocument> validator = null;
+                if (jsonSchema != null)
+                {
+                    var validatorSchema = new BsonDocument("$jsonSchema", jsonSchema.ToBsonDocument());
+                    validator = new BsonDocumentFilterDefinition<BsonDocument>(validatorSchema);
+                }
                 database.CreateCollection(
                     collectionName,
                     new CreateCollectionOptions<BsonDocument>
                     {
-                        Validator = new BsonDocumentFilterDefinition<BsonDocument>(validatorSchema)
+                        EncryptedFields = encrypted_fields?.ToBsonDocument(),
+                        Validator = validator
                     });
             }
             else
@@ -132,7 +162,15 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
 
         protected override void DropCollection(MongoClient client, string databaseName, string collectionName, BsonDocument test, BsonDocument shared)
         {
-            base.DropCollection(client, databaseName, collectionName, test, shared);
+            if (shared.TryGetValue("encrypted_fields", out var encrypted_fields))
+            {
+                var database = client.GetDatabase(databaseName).WithWriteConcern(WriteConcern.WMajority);
+                database.DropCollection(collectionName, new DropCollectionOptions { EncryptedFields = encrypted_fields.AsBsonDocument });
+            }
+            else
+            {
+                base.DropCollection(client, databaseName, collectionName, test, shared);
+            }
 
             if (shared.Contains("key_vault_data"))
             {
@@ -156,7 +194,10 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
                 };
                 var keyVaultCollection = keyVaultDatabase.GetCollection<BsonDocument>(__keyVaultCollectionNamespace.CollectionName, collectionSettings);
                 var keyVaultDocuments = keyVaultData.AsBsonArray.Select(c => c.AsBsonDocument);
-                keyVaultCollection.InsertMany(keyVaultDocuments);
+                if (keyVaultDocuments.Any())
+                {
+                    keyVaultCollection.InsertMany(keyVaultDocuments);
+                }
             }
         }
 
@@ -195,7 +236,7 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
 
             EncryptionTestHelper.ConfigureDefaultExtraOptions(extraOptions);
 
-            var kmsProviders = new ReadOnlyDictionary<string, IReadOnlyDictionary<string, object>>(new Dictionary<string, IReadOnlyDictionary<string, object>>());
+            IReadOnlyDictionary<string, IReadOnlyDictionary<string, object>> kmsProviders = new Dictionary<string, IReadOnlyDictionary<string, object>>();
             var autoEncryptionOptions = new AutoEncryptionOptions(
                 keyVaultNamespace: __keyVaultCollectionNamespace,
                 kmsProviders: kmsProviders,
@@ -206,8 +247,8 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
                 switch (option.Name)
                 {
                     case "kmsProviders":
-                        kmsProviders = ParseKmsProviders(option.Value.AsBsonDocument);
-                        autoEncryptionOptions = autoEncryptionOptions.With(kmsProviders: kmsProviders);
+                        kmsProviders = EncryptionTestHelper.ParseKmsProviders(option.Value.AsBsonDocument, legacy: true);
+                        autoEncryptionOptions = autoEncryptionOptions.With(kmsProviders: Optional.Create(kmsProviders));
                         var tlsSettings = EncryptionTestHelper.CreateTlsOptionsIfAllowed(kmsProviders, allowClientCertificateFunc: (kms) => kms == "kmip");
                         if (tlsSettings != null)
                         {
@@ -215,12 +256,8 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
                         }
                         break;
                     case "schemaMap":
-                        var schemaMaps = new Dictionary<string, BsonDocument>();
                         var schemaMapsDocument = option.Value.AsBsonDocument;
-                        foreach (var schemaMapElement in schemaMapsDocument.Elements)
-                        {
-                            schemaMaps.Add(schemaMapElement.Name, schemaMapElement.Value.AsBsonDocument);
-                        }
+                        var schemaMaps = schemaMapsDocument.Elements.ToDictionary(e => e.Name, e => e.Value.AsBsonDocument);
                         autoEncryptionOptions = autoEncryptionOptions.With(schemaMap: schemaMaps);
                         break;
                     case "bypassAutoEncryption":
@@ -229,94 +266,34 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
                     case "keyVaultNamespace":
                         autoEncryptionOptions = autoEncryptionOptions.With(keyVaultNamespace: CollectionNamespace.FromFullName(option.Value.AsString));
                         break;
-
+                    case "encryptedFieldsMap":
+                        var encryptedFieldsMapDocument = option.Value.AsBsonDocument;
+                        var encryptedFieldsMap = encryptedFieldsMapDocument.Elements.ToDictionary(e => e.Name, e => e.Value.AsBsonDocument);
+                        autoEncryptionOptions = autoEncryptionOptions.With(encryptedFieldsMap: encryptedFieldsMap);
+                        break;
+                    case "bypassQueryAnalysis":
+                        autoEncryptionOptions = autoEncryptionOptions.With(bypassQueryAnalysis: option.Value.ToBoolean());
+                        break;
+                    case "extraOptions":
+                        foreach (var extraOption in option.Value.AsBsonDocument.Elements)
+                        {
+                            switch (extraOption.Name)
+                            {
+                                case "mongocryptdBypassSpawn":
+                                    extraOptions.Add(extraOption.Name, extraOption.Value.ToBoolean());
+                                    break;
+                                default:
+                                    throw new Exception($"Unexpected extra option {extraOption.Name}.");
+                            }
+                        }
+                        autoEncryptionOptions = autoEncryptionOptions.With(extraOptions: extraOptions);
+                        break;
                     default:
                         throw new Exception($"Unexpected auto encryption option {option.Name}.");
                 }
             }
 
             return autoEncryptionOptions;
-        }
-
-        private string GetEnvironmentVariableOrDefaultOrThrowIfNothing(string variableName, string defaultValue = null) =>
-            Environment.GetEnvironmentVariable(variableName) ??
-            defaultValue ??
-            throw new Exception($"{variableName} environment variable must be configured on the machine.");
-
-        private ReadOnlyDictionary<string, IReadOnlyDictionary<string, object>> ParseKmsProviders(BsonDocument kmsProviders)
-        {
-            var providers = new Dictionary<string, IReadOnlyDictionary<string, object>>();
-            foreach (var kmsProvider in kmsProviders.Elements)
-            {
-                var kmsOptions = new Dictionary<string, object>();
-                var kmsProviderName = kmsProvider.Name;
-                switch (kmsProviderName)
-                {
-                    case "awsTemporary":
-                        {
-                            kmsProviderName = "aws";
-                            var awsAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_TEMP_ACCESS_KEY_ID");
-                            var awsSecretAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_TEMP_SECRET_ACCESS_KEY");
-                            var awsSessionToken = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_TEMP_SESSION_TOKEN");
-                            kmsOptions.Add("accessKeyId", awsAccessKey);
-                            kmsOptions.Add("secretAccessKey", awsSecretAccessKey);
-                            kmsOptions.Add("sessionToken", awsSessionToken);
-                        }
-                        break;
-                    case "awsTemporaryNoSessionToken":
-                        {
-                            kmsProviderName = "aws";
-                            var awsAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_TEMP_ACCESS_KEY_ID");
-                            var awsSecretAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_TEMP_SECRET_ACCESS_KEY");
-                            kmsOptions.Add("accessKeyId", awsAccessKey);
-                            kmsOptions.Add("secretAccessKey", awsSecretAccessKey);
-                        }
-                        break;
-                    case "aws":
-                        {
-                            var awsAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_ACCESS_KEY_ID");
-                            var awsSecretAccessKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AWS_SECRET_ACCESS_KEY");
-                            kmsOptions.Add("accessKeyId", awsAccessKey);
-                            kmsOptions.Add("secretAccessKey", awsSecretAccessKey);
-                        }
-                        break;
-                    case "local":
-                        if (kmsProvider.Value.AsBsonDocument.TryGetElement("key", out var key))
-                        {
-                            var binary = key.Value.AsBsonBinaryData;
-                            kmsOptions.Add(key.Name, binary.Bytes);
-                        }
-                        break;
-                    case "azure":
-                        {
-                            var azureTenantId = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AZURE_TENANT_ID");
-                            var azureClientId = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AZURE_CLIENT_ID");
-                            var azureClientSecret = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_AZURE_CLIENT_SECRET");
-                            kmsOptions.Add("tenantId", azureTenantId);
-                            kmsOptions.Add("clientId", azureClientId);
-                            kmsOptions.Add("clientSecret", azureClientSecret);
-                        }
-                        break;
-                    case "gcp":
-                        {
-                            var gcpEmail = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_GCP_EMAIL");
-                            var gcpPrivateKey = GetEnvironmentVariableOrDefaultOrThrowIfNothing("FLE_GCP_PRIVATE_KEY");
-                            kmsOptions.Add("email", gcpEmail);
-                            kmsOptions.Add("privateKey", gcpPrivateKey);
-                        }
-                        break;
-                    case "kmip":
-                        {
-                            kmsOptions.Add("endpoint", "localhost:5698"); // mock server
-                        }
-                        break;
-                    default:
-                        throw new Exception($"Unexpected kms provider type {kmsProvider.Name}.");
-                }
-                providers.Add(kmsProviderName, kmsOptions);
-            }
-
-            return new ReadOnlyDictionary<string, IReadOnlyDictionary<string, object>>(providers);
         }
 
         public void ReplaceTypeAssertionWithActual(BsonDocument actual, BsonDocument expected)
@@ -374,11 +351,6 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
     public class TestCaseFactory : JsonDrivenTestCaseFactory
     {
         #region static
-        private static readonly string[] __ignoredTestNames =
-        {
-            // https://jira.mongodb.org/browse/SPEC-1403
-            "maxWireVersion.json:operation fails with maxWireVersion < 8"
-        };
         private static readonly string[] __versionedApiIgnoredTestNames =
         {
             // https://jira.mongodb.org/browse/SERVER-58293
@@ -387,12 +359,12 @@ namespace MongoDB.Driver.Tests.Specifications.client_side_encryption
         #endregion
 
         // protected properties
-        protected override string PathPrefix => "MongoDB.Driver.Tests.Specifications.client_side_encryption.tests.";
+        protected override string PathPrefix => "MongoDB.Driver.Tests.Specifications.client_side_encryption.tests.legacy.";
 
         // protected methods
         protected override IEnumerable<JsonDrivenTestCase> CreateTestCases(BsonDocument document)
         {
-            var testCases = base.CreateTestCases(document).Where(test => !__ignoredTestNames.Any(ignoredName => test.Name.EndsWith(ignoredName)));
+            var testCases = base.CreateTestCases(document);
             if (CoreTestConfiguration.RequireApiVersion)
             {
                 testCases = testCases.Where(test => !__versionedApiIgnoredTestNames.Any(ignoredName => test.Name.EndsWith(ignoredName)));

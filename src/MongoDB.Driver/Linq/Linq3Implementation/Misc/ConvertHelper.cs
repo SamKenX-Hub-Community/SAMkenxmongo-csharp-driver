@@ -82,7 +82,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
             {
                 var convertExpression = (UnaryExpression)expression;
                 var convertToType = convertExpression.Type;
-                if (convertToType.IsGenericType() &&
+                if (convertToType.IsGenericType &&
                     convertToType.GetGenericTypeDefinition() == typeof(IMongoQueryable<>))
                 {
                     return convertExpression.Operand;
@@ -99,7 +99,9 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
                 var convertExpression = (UnaryExpression)expression;
                 var sourceType = convertExpression.Operand.Type;
                 var targetType = convertExpression.Type;
-                if (sourceType.IsEnum() && targetType == Enum.GetUnderlyingType(sourceType))
+
+                if (sourceType.IsEnumOrNullableEnum(out _, out var underlyingType) &&
+                    targetType.IsSameAsOrNullableOf(underlyingType))
                 {
                     return convertExpression.Operand;
                 }
@@ -115,6 +117,21 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Misc
                 var convertExpression = (UnaryExpression)expression;
                 var targetType = convertExpression.Type;
                 if (targetType.IsInterface)
+                {
+                    return convertExpression.Operand;
+                }
+            }
+
+            return expression;
+        }
+
+        public static Expression RemoveConvertToObject(Expression expression)
+        {
+            if (expression.NodeType == ExpressionType.Convert)
+            {
+                var convertExpression = (UnaryExpression)expression;
+                var targetType = convertExpression.Type;
+                if (targetType == typeof(object))
                 {
                     return convertExpression.Operand;
                 }

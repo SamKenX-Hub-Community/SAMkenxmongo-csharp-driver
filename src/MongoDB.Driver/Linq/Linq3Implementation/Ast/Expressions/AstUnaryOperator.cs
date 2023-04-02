@@ -20,21 +20,22 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
     internal enum AstUnaryOperator
     {
         Abs,
-        ACos,
-        ACosh,
+        Acos,
+        Acosh,
         AddToSet,
         AllElementsTrue,
         AnyElementTrue,
         ArrayToObject,
-        ASin,
-        ASinh,
-        ATan,
-        ATanh,
+        Asin,
+        Asinh,
+        Atan,
+        Atanh,
         Avg,
         BinarySize,
         BsonSize,
         Ceil,
         Cos,
+        Cosh,
         DegreesToRadians,
         Exp,
         First,
@@ -56,6 +57,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
         ReverseArray,
         Round,
         Sin,
+        Sinh,
         Size,
         Sqrt,
         StdDevPop,
@@ -64,6 +66,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
         StrLenCP,
         Sum,
         Tan,
+        Tanh,
         ToBool,
         ToDate,
         ToDecimal,
@@ -80,20 +83,20 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
 
     internal static class AstUnaryOperatorExtensions
     {
-        public static bool IsAccumulator(this AstUnaryOperator @operator, out AstAccumulatorOperator accumulatorOperator)
+        public static bool IsAccumulator(this AstUnaryOperator @operator, out AstUnaryAccumulatorOperator accumulatorOperator)
         {
             switch (@operator)
             {
-                case AstUnaryOperator.AddToSet: accumulatorOperator = AstAccumulatorOperator.AddToSet; return true;
-                case AstUnaryOperator.Avg: accumulatorOperator = AstAccumulatorOperator.Avg; return true;
-                case AstUnaryOperator.First: accumulatorOperator = AstAccumulatorOperator.First; return true;
-                case AstUnaryOperator.Last: accumulatorOperator = AstAccumulatorOperator.Last; return true;
-                case AstUnaryOperator.Max: accumulatorOperator = AstAccumulatorOperator.Max; return true;
-                case AstUnaryOperator.Min: accumulatorOperator = AstAccumulatorOperator.Min; return true;
-                case AstUnaryOperator.Push: accumulatorOperator = AstAccumulatorOperator.Push; return true;
-                case AstUnaryOperator.StdDevPop: accumulatorOperator = AstAccumulatorOperator.StdDevPop; return true;
-                case AstUnaryOperator.StdDevSamp: accumulatorOperator = AstAccumulatorOperator.StdDevSamp; return true;
-                case AstUnaryOperator.Sum: accumulatorOperator = AstAccumulatorOperator.Sum; return true;
+                case AstUnaryOperator.AddToSet: accumulatorOperator = AstUnaryAccumulatorOperator.AddToSet; return true;
+                case AstUnaryOperator.Avg: accumulatorOperator = AstUnaryAccumulatorOperator.Avg; return true;
+                case AstUnaryOperator.First: accumulatorOperator = AstUnaryAccumulatorOperator.First; return true;
+                case AstUnaryOperator.Last: accumulatorOperator = AstUnaryAccumulatorOperator.Last; return true;
+                case AstUnaryOperator.Max: accumulatorOperator = AstUnaryAccumulatorOperator.Max; return true;
+                case AstUnaryOperator.Min: accumulatorOperator = AstUnaryAccumulatorOperator.Min; return true;
+                case AstUnaryOperator.Push: accumulatorOperator = AstUnaryAccumulatorOperator.Push; return true;
+                case AstUnaryOperator.StdDevPop: accumulatorOperator = AstUnaryAccumulatorOperator.StdDevPop; return true;
+                case AstUnaryOperator.StdDevSamp: accumulatorOperator = AstUnaryAccumulatorOperator.StdDevSamp; return true;
+                case AstUnaryOperator.Sum: accumulatorOperator = AstUnaryAccumulatorOperator.Sum; return true;
                 default: accumulatorOperator = default; return false;
             }
         }
@@ -103,21 +106,22 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
             return @operator switch
             {
                 AstUnaryOperator.Abs => "$abs",
-                AstUnaryOperator.ACos => "$acos",
-                AstUnaryOperator.ACosh => "$acosh",
+                AstUnaryOperator.Acos => "$acos",
+                AstUnaryOperator.Acosh => "$acosh",
                 AstUnaryOperator.AddToSet => "$addToSet",
                 AstUnaryOperator.AllElementsTrue => "$allElementsTrue",
                 AstUnaryOperator.AnyElementTrue => "$anyElementTrue",
                 AstUnaryOperator.ArrayToObject => "$arrayToObject",
-                AstUnaryOperator.ASin => "$asin",
-                AstUnaryOperator.ASinh => "$asinh",
-                AstUnaryOperator.ATan => "$atan",
-                AstUnaryOperator.ATanh => "$atanh",
+                AstUnaryOperator.Asin => "$asin",
+                AstUnaryOperator.Asinh => "$asinh",
+                AstUnaryOperator.Atan => "$atan",
+                AstUnaryOperator.Atanh => "$atanh",
                 AstUnaryOperator.Avg => "$avg",
                 AstUnaryOperator.BinarySize => "$binarySize",
                 AstUnaryOperator.BsonSize => "$bsonSize",
                 AstUnaryOperator.Ceil => "$ceil",
                 AstUnaryOperator.Cos => "$cos",
+                AstUnaryOperator.Cosh => "$cosh",
                 AstUnaryOperator.DegreesToRadians => "$degreesToRadians",
                 AstUnaryOperator.Exp => "$exp",
                 AstUnaryOperator.First => "$first",
@@ -139,6 +143,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
                 AstUnaryOperator.ReverseArray => "$reverseArray",
                 AstUnaryOperator.Round => "$round",
                 AstUnaryOperator.Sin => "$sin",
+                AstUnaryOperator.Sinh => "$sinh",
                 AstUnaryOperator.Size => "$size",
                 AstUnaryOperator.Sqrt => "$sqrt",
                 AstUnaryOperator.StdDevPop => "$stdDevPop",
@@ -147,6 +152,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions
                 AstUnaryOperator.StrLenCP => "$strLenCP",
                 AstUnaryOperator.Sum => "$sum",
                 AstUnaryOperator.Tan => "$tan",
+                AstUnaryOperator.Tanh => "$tanh",
                 AstUnaryOperator.ToBool => "$toBool",
                 AstUnaryOperator.ToDate => "$toDate",
                 AstUnaryOperator.ToDecimal => "$toDecimal",

@@ -43,6 +43,14 @@ namespace MongoDB.Driver.Core.Operations
         BsonDocument ResumeAfter { get; set; }
 
         /// <summary>
+        /// Gets or sets whether the change stream should show expanded events (MongoDB 6.0 and later).
+        /// </summary>
+        /// <value>
+        /// The value.
+        /// </value>
+        bool? ShowExpandedEvents { get; set; }
+
+        /// <summary>
         /// Gets or sets the start after value.
         /// </summary>
         /// <value>
@@ -89,6 +97,7 @@ namespace MongoDB.Driver.Core.Operations
         private readonly CollectionNamespace _collectionNamespace;
         private readonly DatabaseNamespace _databaseNamespace;
         private ChangeStreamFullDocumentOption _fullDocument = ChangeStreamFullDocumentOption.Default;
+        private ChangeStreamFullDocumentBeforeChangeOption _fullDocumentBeforeChangeOption = ChangeStreamFullDocumentBeforeChangeOption.Default;
         private TimeSpan? _maxAwaitTime;
         private readonly MessageEncoderSettings _messageEncoderSettings;
         private readonly IReadOnlyList<BsonDocument> _pipeline;
@@ -96,6 +105,7 @@ namespace MongoDB.Driver.Core.Operations
         private readonly IBsonSerializer<TResult> _resultSerializer;
         private BsonDocument _resumeAfter;
         private bool _retryRequested;
+        private bool? _showExpandedEvents;
         private BsonDocument _startAfter;
         private BsonTimestamp _startAtOperationTime;
 
@@ -213,6 +223,18 @@ namespace MongoDB.Driver.Core.Operations
         }
 
         /// <summary>
+        /// Gets or sets the full document before change option.
+        /// </summary>
+        /// <value>
+        /// The full document before change option.
+        /// </value>
+        public ChangeStreamFullDocumentBeforeChangeOption FullDocumentBeforeChange
+        {
+            get { return _fullDocumentBeforeChangeOption; }
+            set { _fullDocumentBeforeChangeOption = value; }
+        }
+
+        /// <summary>
         /// Gets or sets the maximum await time.
         /// </summary>
         /// <value>
@@ -275,6 +297,13 @@ namespace MongoDB.Driver.Core.Operations
         {
             get => _retryRequested;
             set => _retryRequested = value;
+        }
+
+        /// <inheritdoc />
+        public bool? ShowExpandedEvents
+        {
+            get => _showExpandedEvents;
+            set => _showExpandedEvents = value;
         }
 
         /// <inheritdoc />
@@ -417,8 +446,10 @@ namespace MongoDB.Driver.Core.Operations
             var changeStreamOptions = new BsonDocument
             {
                 { "fullDocument", () => ToString(_fullDocument), _fullDocument != ChangeStreamFullDocumentOption.Default },
+                { "fullDocumentBeforeChange", () => ToString(_fullDocumentBeforeChangeOption), _fullDocumentBeforeChangeOption != ChangeStreamFullDocumentBeforeChangeOption.Default },
                 { "allChangesForCluster", true, _collectionNamespace == null && _databaseNamespace == null },
-                { "startAfter", _startAfter, _startAfter != null},
+                { "showExpandedEvents", _showExpandedEvents, _showExpandedEvents.HasValue },
+                { "startAfter", _startAfter, _startAfter != null },
                 { "startAtOperationTime", _startAtOperationTime, _startAtOperationTime != null },
                 { "resumeAfter", _resumeAfter, _resumeAfter != null }
             };
@@ -468,14 +499,22 @@ namespace MongoDB.Driver.Core.Operations
             return null;
         }
 
-        private string ToString(ChangeStreamFullDocumentOption fullDocument)
-        {
-            switch (fullDocument)
+        private string ToString(ChangeStreamFullDocumentOption fullDocument) =>
+            fullDocument switch
             {
-                case ChangeStreamFullDocumentOption.Default: return "default";
-                case ChangeStreamFullDocumentOption.UpdateLookup: return "updateLookup";
-                default: throw new ArgumentException($"Invalid FullDocument option: {fullDocument}.", nameof(fullDocument));
-            }
-        }
+                ChangeStreamFullDocumentOption.UpdateLookup => "updateLookup",
+                ChangeStreamFullDocumentOption.WhenAvailable => "whenAvailable",
+                ChangeStreamFullDocumentOption.Required => "required",
+                _ => throw new ArgumentException($"Invalid FullDocument option: {fullDocument}.", nameof(fullDocument))
+            };
+
+        private string ToString(ChangeStreamFullDocumentBeforeChangeOption fullDocumentBeforeChange) =>
+            fullDocumentBeforeChange switch
+            {
+                ChangeStreamFullDocumentBeforeChangeOption.Off => "off",
+                ChangeStreamFullDocumentBeforeChangeOption.WhenAvailable => "whenAvailable",
+                ChangeStreamFullDocumentBeforeChangeOption.Required => "required",
+                _ => throw new ArgumentException($"Invalid FullDocumentBeforeChange option: {fullDocumentBeforeChange}.", nameof(fullDocumentBeforeChange))
+            };
     }
 }

@@ -16,11 +16,13 @@
 using System;
 using System.Net;
 using System.Threading;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Configuration;
 using MongoDB.Driver.Core.ConnectionPools;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Events;
+using MongoDB.Driver.Core.Logging;
 
 namespace MongoDB.Driver.Core.Servers
 {
@@ -36,8 +38,8 @@ namespace MongoDB.Driver.Core.Servers
             ServerSettings serverSettings,
             EndPoint endPoint,
             IConnectionPoolFactory connectionPoolFactory,
-            IEventSubscriber eventSubscriber,
-            ServerApi serverApi)
+            ServerApi serverApi,
+            EventLogger<LogCategories.SDAM> eventLogger)
             : base(
                   clusterId,
                   clusterClock,
@@ -49,8 +51,8 @@ namespace MongoDB.Driver.Core.Servers
                   serverSettings,
                   endPoint,
                   connectionPoolFactory,
-                  eventSubscriber,
-                  serverApi)
+                  serverApi,
+                  eventLogger)
         {
             _baseDescription = _currentDescription = new ServerDescription(ServerId, endPoint, reasonChanged: "ServerInitialDescription");
         }
@@ -105,12 +107,12 @@ namespace MongoDB.Driver.Core.Servers
             var oldDescription = Interlocked.CompareExchange(ref _currentDescription, value: newDescription, comparand: _currentDescription);
             var eventArgs = new ServerDescriptionChangedEventArgs(oldDescription, newDescription);
 
-            // propagate event to upper levels, this will be called only once
-            TriggerServerDescriptionChanged(this, eventArgs);
-
             // mark pool as ready, start the connection creation thread.
             // note that the pool can not be paused after it was marked as ready in LB mode.
             ConnectionPool.SetReady();
+
+            // propagate event to upper levels, this will be called only once
+            TriggerServerDescriptionChanged(this, eventArgs);
         }
 
         protected override void Invalidate(string reasonInvalidated, bool clearConnectionPool, TopologyVersion topologyVersion)

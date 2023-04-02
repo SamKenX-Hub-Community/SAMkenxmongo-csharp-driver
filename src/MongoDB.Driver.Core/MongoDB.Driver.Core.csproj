@@ -1,51 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <IsWindows Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</IsWindows>
-    <IsOSX Condition="$([MSBuild]::IsOSPlatform('OSX'))">true</IsOSX>
-    <IsLinux Condition="$([MSBuild]::IsOSPlatform('Linux'))">true</IsLinux>
-  </PropertyGroup>
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net472</TargetFrameworks>
-    <TargetFrameworks Condition="'$(IsWindows)'!='true'">netstandard2.0;netstandard2.1</TargetFrameworks>
-    <LangVersion>9</LangVersion>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsAsErrors />
     <CodeAnalysisRuleSet>..\..\MongoDB.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
   <PropertyGroup>
     <AssemblyTitle>MongoDB.Driver.Core</AssemblyTitle>
     <Product>MongoDB.Driver.Core</Product>
-    <Company>MongoDB Inc.</Company>
-    <Copyright>Copyright © 2010-present MongoDB Inc.</Copyright>
-    <Description>Official MongoDB supported Driver Core library. See https://docs.mongodb.com/drivers/csharp/ for more details.</Description>
-    <Authors>MongoDB Inc.</Authors>
-    <PackageIcon>packageIcon.png</PackageIcon>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Description>Official MongoDB supported Driver Core library. See https://www.mongodb.com/docs/drivers/csharp/ for more details.</Description>
     <PackageDescription>Core Component of the Official MongoDB .NET Driver.</PackageDescription>
-    <PackageProjectUrl>https://docs.mongodb.com/drivers/csharp/</PackageProjectUrl>
-    <PackageLicenseFile>License.txt</PackageLicenseFile>
-    <PackageTags>mongodb;mongo;nosql</PackageTags>
-    <PackageLanguage>en-US</PackageLanguage>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="All" Version="1.0.0" />
-  </ItemGroup>
-
-  <PropertyGroup Condition="'$(Version)'==''">
-    <Version>0.0.0-local</Version>
   </PropertyGroup>
 
   <PropertyGroup>
-    <DefineConstants>TRACE</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>MongoDB.Driver</RootNamespace>
   </PropertyGroup>
 
@@ -53,137 +18,15 @@
     <NoWarn>NU5100</NoWarn>
   </PropertyGroup>
 
-  <!--Compression-->
-  <PropertyGroup>
-    <CompressionWinRuntimesPath>runtimes/win/native</CompressionWinRuntimesPath>
-    <CompressionLinuxRuntimesPath>runtimes/linux/native</CompressionLinuxRuntimesPath>
-    <CompressionOsxRuntimesPath>runtimes/osx/native</CompressionOsxRuntimesPath>
-  </PropertyGroup>
-
-  <!--Snappy-->
-  <PropertyGroup>
-    <SnappyWinBinaries>Core/Compression/Snappy/lib/win</SnappyWinBinaries>
-    <SnappyLinuxBinaries>Core/Compression/Snappy/lib/linux</SnappyLinuxBinaries>
-    <SnappyOsxBinaries>Core/Compression/Snappy/lib/osx</SnappyOsxBinaries>
-  </PropertyGroup>
-
   <ItemGroup>
-    <!--Responsible for 'runtimes\$OS\native\%(FileName)%(Extension)' in package.nupkg-->
-    <!--win-->
-    <Content Include="$(SnappyWinBinaries)/**/*.dll">
-      <!--x32/x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionWinRuntimesPath)</PackagePath>
-    </Content>
-    <!--linux-->
-    <Content Include="$(SnappyLinuxBinaries)/**/*.so">
-      <!--x32/x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionLinuxRuntimesPath)</PackagePath>
-    </Content>
-    <!--osx-->
-    <Content Include="$(SnappyOsxBinaries)/**/*.dylib">
-      <!--x32/x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionOsxRuntimesPath)</PackagePath>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <!--Used to allow working with native libraries in our test projects-->
-    <!--Responsible for 'context and contentFiles' folders in package.nupkg-->
-    <!--win-->
-    <Content Include="$(SnappyWinBinaries)/**/*.dll">
-      <!--x32/x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-    <!--linux-->
-    <Content Include="$(SnappyLinuxBinaries)/**/*.so">
-      <!--x32/x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-    <!--osx-->
-    <Content Include="$(SnappyOsxBinaries)/**/*.dylib">
-      <!--x32/x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-  </ItemGroup>
-
-  <!--Zstd-->
-  <PropertyGroup>
-    <ZstdWinBinaries>Core/Compression/Zstandard/lib/win</ZstdWinBinaries>
-    <ZstdLinuxBinaries>Core/Compression/Zstandard/lib/linux</ZstdLinuxBinaries>
-    <ZstdOsxBinaries>Core/Compression/Zstandard/lib/osx</ZstdOsxBinaries>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <!--Responsible for 'runtimes\$OS\native\%(FileName)%(Extension)' in package.nupkg-->
-    <!--win-->
-    <Content Include="$(ZstdWinBinaries)/**/*.dll">
-      <!--only x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionWinRuntimesPath)</PackagePath>
-    </Content>
-    <!--linux-->
-    <Content Include="$(ZstdLinuxBinaries)/**/*.so">
-      <!--only x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionLinuxRuntimesPath)</PackagePath>
-    </Content>
-    <!--osx-->
-    <Content Include="$(ZstdOsxBinaries)/**/*.dylib">
-      <!--only x64-->
-      <Pack>true</Pack>
-      <PackagePath>$(CompressionOsxRuntimesPath)</PackagePath>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <!--Used to allow working with native libraries in our test projects-->
-    <!--Responsible for 'context and contentFiles' folders in package.nupkg-->
-    <!--win-->
-    <Content Include="$(ZstdWinBinaries)/**/*.dll">
-      <!--only x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-    <!--linux-->
-    <Content Include="$(ZstdLinuxBinaries)/**/*.so">
-      <!--only x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-    <!--osx-->
-    <Content Include="$(ZstdOsxBinaries)/**/*.dylib">
-      <!--only x64-->
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(FileName)%(Extension)</Link>
-    </Content>
-  </ItemGroup>
-
-  <!--targets-->
-  <ItemGroup>
-    <!--Used for non-sdk projects-->
-    <!--Responsible for build/MongoDB.Driver.Core.targets-->
-    <Content Include="MongoDB.Driver.Core.targets">
-      <Pack>true</Pack>
-      <PackagePath>build</PackagePath>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="DnsClient" Version="1.6.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.2" PrivateAssets="All" />
-    <PackageReference Include="MongoDB.Libmongocrypt" Version="1.3.0" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.100.14" />
+    <PackageReference Include="DnsClient" Version="1.6.1" />
+    <PackageReference Include="MongoDB.Libmongocrypt" Version="1.7.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.0.0" />
     <PackageReference Include="SharpCompress" Version="0.30.1" />
+    <PackageReference Include="Snappier" Version="1.0.0" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.6.2" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
@@ -200,9 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\License.txt" Pack="true" PackagePath="$(PackageLicenseFile)" />
     <None Include="..\..\THIRD-PARTY-NOTICES" Pack="true" PackagePath="\" />
-    <None Include="..\..\packageIcon.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>

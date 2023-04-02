@@ -23,7 +23,7 @@ using Xunit;
 using System.Threading.Tasks;
 using System.Reflection;
 using System.IO;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using MongoDB.Bson.TestHelpers;
 
@@ -137,7 +137,7 @@ namespace MongoDB.Driver.Core.Connections
             action.ShouldThrow<TimeoutException>();
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void CreateStream_should_call_the_socketConfigurator(
             [Values(false, true)]
@@ -162,7 +162,7 @@ namespace MongoDB.Driver.Core.Connections
             socketConfiguratorWasCalled.Should().BeTrue();
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void CreateStream_should_connect_to_a_running_server_and_return_a_non_null_stream(
             [Values(false, true)]
@@ -185,7 +185,7 @@ namespace MongoDB.Driver.Core.Connections
             stream.Should().NotBeNull();
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void SocketConfigurator_can_be_used_to_set_keepAlive(
             [Values(false, true)]
@@ -207,7 +207,7 @@ namespace MongoDB.Driver.Core.Connections
                 stream = subject.CreateStream(endPoint, CancellationToken.None);
             }
 
-            var socketProperty = typeof(NetworkStream).GetProperty("Socket", BindingFlags.NonPublic | BindingFlags.Instance);
+            var socketProperty = typeof(NetworkStream).GetProperty("Socket", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             var socket = (Socket)socketProperty.GetValue(stream);
             var keepAlive = (int)socket.GetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive);
             keepAlive.Should().NotBe(0); // .NET returns 1 but Mono returns 8
@@ -219,14 +219,6 @@ namespace MongoDB.Driver.Core.Connections
             public int DisposeAttempts { get; set; } = 0;
 
             public TestSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType) : base(addressFamily, socketType, protocolType)
-            {
-            }
-
-            public TestSocket(SocketType socketType, ProtocolType protocolType) : base(socketType, protocolType)
-            {
-            }
-
-            public TestSocket(SocketInformation socketInformation) : base(socketInformation)
             {
             }
 

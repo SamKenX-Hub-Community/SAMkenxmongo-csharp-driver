@@ -21,7 +21,6 @@ using System.Reflection;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
-using MongoDB.Driver.Linq.Linq3Implementation.Ast;
 using MongoDB.Driver.Linq.Linq3Implementation.Ast.Expressions;
 using MongoDB.Driver.Linq.Linq3Implementation.Misc;
 using MongoDB.Driver.Linq.Linq3Implementation.Serializers;
@@ -36,7 +35,7 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
             var containerExpression = expression.Expression;
             var member = expression.Member;
 
-            if (member is PropertyInfo property)
+            if (member is PropertyInfo property && property.DeclaringType.IsNullable())
             {
                 switch (property.Name)
                 {
@@ -50,10 +49,15 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
             if (containerTranslation.Serializer is IWrappedValueSerializer wrappedValueSerializer)
             {
                 var unwrappedValueAst = AstExpression.GetField(containerTranslation.Ast, wrappedValueSerializer.FieldName);
-                containerTranslation = new AggregationExpression(expression, unwrappedValueAst, wrappedValueSerializer.ValueSerializer);
+                containerTranslation = new AggregationExpression(containerExpression, unwrappedValueAst, wrappedValueSerializer.ValueSerializer);
             }
 
-            if (!DocumentSerializerHelper.HasFieldInfo(containerTranslation.Serializer, member.Name))
+            if (containerExpression.Type.IsTupleOrValueTuple())
+            {
+                return TranslateTupleItemProperty(expression, containerTranslation);
+            }
+
+            if (!DocumentSerializerHelper.HasMemberSerializationInfo(containerTranslation.Serializer, member.Name))
             {
                 if (member is PropertyInfo propertyInfo  && propertyInfo.Name == "Length")
                 {
@@ -71,9 +75,27 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                 }
             }
 
-            var fieldInfo = DocumentSerializerHelper.GetFieldInfo(containerTranslation.Serializer, member.Name);
-            var ast = AstExpression.GetField(containerTranslation.Ast, fieldInfo.ElementName);
-            return new AggregationExpression(expression, ast, fieldInfo.Serializer);
+            var serializationInfo = DocumentSerializerHelper.GetMemberSerializationInfo(containerTranslation.Serializer, member.Name);
+            var ast = AstExpression.GetField(containerTranslation.Ast, serializationInfo.ElementName);
+            return new AggregationExpression(expression, ast, serializationInfo.Serializer);
+        }
+
+        private static AggregationExpression TranslateTupleItemProperty(MemberExpression expression, AggregationExpression containerTranslation)
+        {
+            if (containerTranslation.Serializer is IBsonTupleSerializer tupleSerializer)
+            {
+                var itemName = expression.Member.Name;
+                if (TupleSerializer.TryParseItemName(itemName, out var itemNumber))
+                {
+                    var ast = AstExpression.ArrayElemAt(containerTranslation.Ast, index: itemNumber - 1);
+                    var itemSerializer = tupleSerializer.GetItemSerializer(itemNumber);
+                    return new AggregationExpression(expression, ast, itemSerializer);
+                }
+
+                throw new ExpressionNotSupportedException(expression, because: $"Item name is not valid: {itemName}");
+            }
+
+            throw new ExpressionNotSupportedException(expression, because: $"serializer {containerTranslation.Serializer.GetType().FullName} does not implement IBsonTupleSerializer");
         }
 
         private static bool TryTranslateCollectionCountProperty(MemberExpression expression, AggregationExpression container, MemberInfo memberInfo, out AggregationExpression result)
@@ -124,7 +146,6 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToAggreg
                         case "Minute": datePart = AstDatePart.Minute; break;
                         case "Month": datePart = AstDatePart.Month; break;
                         case "Second": datePart = AstDatePart.Second; break;
-                        case "Week": datePart = AstDatePart.Week; break;
                         case "Year": datePart = AstDatePart.Year; break;
                         default: return false;
                     }

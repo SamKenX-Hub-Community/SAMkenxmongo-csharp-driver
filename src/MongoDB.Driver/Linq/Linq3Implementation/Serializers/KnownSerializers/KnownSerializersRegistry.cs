@@ -29,21 +29,78 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Serializers.KnownSerializers
         // public methods
         public void Add(Expression expression, KnownSerializersNode knownSerializers)
         {
-            if (_registry.ContainsKey(expression)) return;
+            if (knownSerializers.Expression != expression)
+            {
+                throw new ArgumentException($"Expression {expression} does not match knownSerializers.Expression {knownSerializers.Expression}.");
+            }
+
+            if (_registry.ContainsKey(expression))
+            {
+                return;
+            }
 
             _registry.Add(expression, knownSerializers);
+        }
+
+        public void SetNodeSerializer(Expression expression, IBsonSerializer nodeSerializer)
+        {
+            if (nodeSerializer.ValueType != expression.Type)
+            {
+                throw new ArgumentException($"Serializer value type {nodeSerializer.ValueType} does not match expresion type {expression.Type}.", nameof(nodeSerializer));
+            }
+
+            if (!_registry.TryGetValue(expression, out var knownSerializers))
+            {
+                throw new InvalidOperationException("KnownSerializersNode does not exist yet for expression: {expression}.");
+            }
+
+            knownSerializers.SetNodeSerializer(nodeSerializer);
         }
 
         public IBsonSerializer GetSerializer(Expression expression, IBsonSerializer defaultSerializer = null)
         {
             var expressionType = expression is LambdaExpression lambdaExpression ? lambdaExpression.ReturnType : expression.Type;
-            var possibleSerializers = _registry.TryGetValue(expression, out var knownSerializers) ? knownSerializers.GetPossibleSerializers(expressionType) : new HashSet<IBsonSerializer>();
+            return GetSerializer(expression, expressionType, defaultSerializer);
+        }
+
+        public IBsonSerializer GetSerializer(Expression expression, Type type, IBsonSerializer defaultSerializer = null)
+        {
+            var possibleSerializers = _registry.TryGetValue(expression, out var knownSerializers) ? knownSerializers.GetPossibleSerializers(type) : new HashSet<IBsonSerializer>();
             return possibleSerializers.Count switch
             {
-                0 => defaultSerializer ?? throw new InvalidOperationException($"Cannot find serializer for {expression}."),
-                > 1 => throw new InvalidOperationException($"More than one possible serializer found for {expression}."),
-                _ => possibleSerializers.First()
+                0 => defaultSerializer ?? LookupSerializer(expression, type), // sometimes there is no known serializer from the context (e.g. CSHARP-4062)
+                1 => possibleSerializers.First(),
+                _ => throw new InvalidOperationException($"More than one possible serializer found for {type} in {expression}.")
             };
+        }
+
+        public IBsonSerializer GetSerializerAtThisLevel(Expression expression)
+        {
+            var expressionType = expression is LambdaExpression lambdaExpression ? lambdaExpression.ReturnType : expression.Type;
+            return GetSerializerAtThisLevel(expression, expressionType);
+        }
+
+        public IBsonSerializer GetSerializerAtThisLevel(Expression expression, Type type)
+        {
+            var possibleSerializers = _registry.TryGetValue(expression, out var knownSerializers) ? knownSerializers.GetPossibleSerializers(type) : new HashSet<IBsonSerializer>();
+            return possibleSerializers.Count == 1 ? possibleSerializers.Single() : null;
+        }
+
+        private IBsonSerializer LookupSerializer(Expression expression, Type type)
+        {
+            if (type.IsConstructedGenericType &&
+                type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            {
+                var genericArguments = type.GetGenericArguments();
+                var keyType = genericArguments[0];
+                var elementType = genericArguments[1];
+
+                var keySerializer = GetSerializer(expression, keyType);
+                var elementSerializer = GetSerializer(expression, elementType);
+                return IGroupingSerializer.Create(keySerializer, elementSerializer);
+            }
+
+            return BsonSerializer.LookupSerializer(type);
         }
     }
 }

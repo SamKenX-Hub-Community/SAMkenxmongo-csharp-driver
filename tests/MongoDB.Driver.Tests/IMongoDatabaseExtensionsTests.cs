@@ -15,7 +15,7 @@
 
 using System.Threading;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using Moq;
 using Xunit;
 
@@ -33,7 +33,8 @@ namespace MongoDB.Driver.Tests
             var database = mockDatabase.Object;
             var session = new Mock<IClientSessionHandle>().Object;
             var options = new ChangeStreamOptions();
-            var cancellationToken = new CancellationTokenSource().Token;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
 
             if (usingSession)
             {

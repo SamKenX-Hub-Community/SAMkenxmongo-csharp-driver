@@ -33,11 +33,11 @@ namespace MongoDB.Driver.Tests.Specifications.change_streams
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
-            using (var runner = new UnifiedTestRunner())
+            using (var runner = new UnifiedTestRunner(loggingService: this))
             {
                 runner.Run(testCase);
             }

@@ -15,6 +15,7 @@
 
 using FluentAssertions;
 using MongoDB.Bson.Serialization;
+using MongoDB.Driver.Linq;
 using Xunit;
 
 namespace MongoDB.Driver.Tests

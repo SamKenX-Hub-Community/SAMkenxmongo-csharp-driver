@@ -100,6 +100,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
             return new AstFieldOperationFilter(field, new AstComparisonFilterOperation(AstComparisonFilterOperator.Eq, value));
         }
 
+        public static AstFieldOperationFilter Exists(AstFilterField field)
+        {
+            return new AstFieldOperationFilter(field, new AstExistsFilterOperation(exists: true));
+        }
+
         public static AstFilter Expr(AstExpression expression)
         {
             return new AstExprFilter(expression);
@@ -133,6 +138,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Ast.Filters
         public static AstFieldOperationFilter Ne(AstFilterField field, BsonValue value)
         {
             return new AstFieldOperationFilter(field, new AstComparisonFilterOperation(AstComparisonFilterOperator.Ne, value));
+        }
+
+        public static AstFieldOperationFilter Nin(AstFilterField field, IEnumerable<BsonValue> values)
+        {
+            return new AstFieldOperationFilter(field, new AstNinFilterOperation(values));
         }
 
         public static AstFilter Not(AstFilter filter)

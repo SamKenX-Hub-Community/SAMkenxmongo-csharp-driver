@@ -20,22 +20,22 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using MongoDB.Driver.Core;
 using MongoDB.Driver.Core.Misc;
-using MongoDB.Shared;
 
 namespace MongoDB.Driver.Encryption
 {
-    internal static class EncryptionExtraOptionsValidator
+    internal static class EncryptionExtraOptionsHelper
     {
-        #region static
         private static readonly Dictionary<string, Type[]> __supportedExtraOptions = new Dictionary<string, Type[]>
         {
+            { "cryptSharedLibPath", new [] { typeof(string) } },
+            { "cryptSharedLibRequired", new [] { typeof(bool) } },
             { "mongocryptdURI", new [] { typeof(string) } },
             { "mongocryptdBypassSpawn", new [] { typeof(bool) } },
             { "mongocryptdSpawnPath", new [] { typeof(string) } },
             { "mongocryptdSpawnArgs", new [] { typeof(string), typeof(IEnumerable<string>) } }
         };
-        #endregion
 
         public static void EnsureThatExtraOptionsAreValid(IReadOnlyDictionary<string, object> extraOptions)
         {
@@ -62,14 +62,23 @@ namespace MongoDB.Driver.Encryption
                 }
             }
         }
+
+        public static string ExtractCryptSharedLibPath(IReadOnlyDictionary<string, object> dict) =>
+            dict.GetValueOrDefault<string, string, object>("cryptSharedLibPath");
+
+        public static bool? ExtractCryptSharedLibRequired(IReadOnlyDictionary<string, object> dict) =>
+            dict.GetValueOrDefault<bool?, string, object>("cryptSharedLibRequired");
+
     }
 
     internal class MongocryptdFactory
     {
+        private readonly bool? _bypassQueryAnalysis;
         private readonly IReadOnlyDictionary<string, object> _extraOptions;
 
-        public MongocryptdFactory(IReadOnlyDictionary<string, object> extraOptions)
+        public MongocryptdFactory(IReadOnlyDictionary<string, object> extraOptions, bool? bypassQueryAnalysis)
         {
+            _bypassQueryAnalysis = bypassQueryAnalysis;
             _extraOptions = extraOptions ?? new Dictionary<string, object>();
         }
 
@@ -113,6 +122,15 @@ namespace MongoDB.Driver.Encryption
         {
             path = null;
             args = null;
+
+            // bypassAutoEncryption=true doesn't enable autoencryption
+            if (_bypassQueryAnalysis.GetValueOrDefault(defaultValue: false))
+            {
+                return false;
+            }
+
+            // csfle shared library option is not validated here as
+            // Mongocryptd invocation is libmongocrypt responsibility
             if (!_extraOptions.TryGetValue("mongocryptdBypassSpawn", out var mongoCryptBypassSpawn)
                 || !(bool)mongoCryptBypassSpawn)
             {
@@ -142,7 +160,7 @@ namespace MongoDB.Driver.Encryption
                         case IEnumerable enumerable:
                             foreach (var item in enumerable)
                             {
-                                args += $"--{item.ToString().TrimStart('-')} ";
+                                args += $"--{item.ToString().TrimStart(' ').TrimStart('-')} ";
                             }
                             break;
                         default:

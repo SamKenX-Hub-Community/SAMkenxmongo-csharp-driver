@@ -9,9 +9,9 @@ set -o errexit # Exit the script with error if any of the commands fail
 #   OS                                  Operating system, must be set
 #   SERVERLESS_ATLAS_USER               Authentication user, must be set
 #   SERVERLESS_ATLAS_PASSWORD           Authentiction password, must be set
-#   SINGLE_ATLASPROXY_SERVERLESS_URI    Single atlas proxy serverless uri, must be set
-#   MULTI_ATLASPROXY_SERVERLESS_URI     Multi atlas proxy serverless uri, must be set
+#   SERVERLESS_URI                      Single atlas proxy serverless uri, must be set
 #   SSL                                 TLS connection flag, must be "ssl"
+#   CRYPT_SHARED_LIB_PATH               The path to crypt_shared library
 # Modified/exported environment variables:
 #   MONGODB_URI                         MONGODB_URI for single host with auth details and TLS and compressor parameters
 #   MONGODB_URI_WITH_MULTIPLE_MONGOSES  MONGODB_URI with auth details and TLS and compressor parameters
@@ -20,6 +20,8 @@ set -o errexit # Exit the script with error if any of the commands fail
 ############################################
 #            Main Program                  #
 ############################################
+
+echo "CRYPT_SHARED_LIB_PATH: ${CRYPT_SHARED_LIB_PATH}"
 
 if [[ "$AUTH" != "auth" ]]; then
   echo "Serverless tests require AUTH to be enabled"
@@ -47,8 +49,8 @@ else
   done
 fi
 
-export MONGODB_URI="mongodb://${SERVERLESS_ATLAS_USER}:${SERVERLESS_ATLAS_PASSWORD}@${SINGLE_ATLASPROXY_SERVERLESS_URI:10}"
-export MONGODB_URI_WITH_MULTIPLE_MONGOSES="mongodb+srv://${SERVERLESS_ATLAS_USER}:${SERVERLESS_ATLAS_PASSWORD}@${MULTI_ATLASPROXY_SERVERLESS_URI:14}"
+# Assume "mongodb+srv" protocol
+export MONGODB_URI="mongodb+srv://${SERVERLESS_ATLAS_USER}:${SERVERLESS_ATLAS_PASSWORD}@${SERVERLESS_URI:14}"
 export SERVERLESS="true"
 
 if [ "Windows_NT" = "$OS" ]; then

@@ -142,12 +142,11 @@ namespace MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToExecut
                     outputWrappedValueSerializer,
                     AstStage.Group(
                         id: BsonNull.Value,
-                        fields: AstExpression.AccumulatorField("_v", AstAccumulatorOperator.Sum, valueAst)),
+                        fields: AstExpression.AccumulatorField("_v", AstUnaryAccumulatorOperator.Sum, valueAst)),
                     AstStage.Project(AstProject.ExcludeId()));
 
                 return ExecutableQuery.Create(
-                    provider.Collection,
-                    provider.Options,
+                    provider,
                     pipeline,
                     __finalizer);
             }

@@ -18,6 +18,7 @@ using System.Linq;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using MongoDB.Driver.Linq;
 using MongoDB.Driver.Linq.Linq3Implementation;
 using MongoDB.Driver.Linq.Linq3Implementation.Translators.ExpressionToExecutableQueryTranslators;
 
@@ -25,6 +26,11 @@ namespace MongoDB.Driver.Tests.Linq.Linq3ImplementationTests
 {
     public abstract class Linq3IntegrationTest
     {
+        protected void AssertStages(IEnumerable<BsonDocument> stages, params string[] expectedStages)
+        {
+            AssertStages(stages, (IEnumerable<string>)expectedStages);
+        }
+
         protected void AssertStages(IEnumerable<BsonDocument> stages, IEnumerable<string> expectedStages)
         {
             stages.Should().Equal(expectedStages.Select(json => BsonDocument.Parse(json)));
@@ -46,42 +52,125 @@ namespace MongoDB.Driver.Tests.Linq.Linq3ImplementationTests
             }
         }
 
-        protected IMongoCollection<TDocument> GetCollection<TDocument>(string collectionName = null)
+        protected void CreateCollection<TDocument>(IMongoCollection<TDocument> collection, params TDocument[] documents)
         {
-            var databaseName = DriverTestConfiguration.DatabaseNamespace.DatabaseName;
-            collectionName ??= DriverTestConfiguration.CollectionNamespace.CollectionName;
-            return GetCollection<TDocument>(databaseName, collectionName);
+            CreateCollection(collection, (IEnumerable<TDocument>)documents); ;
         }
 
-        protected IMongoCollection<TDocument> GetCollection<TDocument>(string databaseName, string collectionName)
+        protected IMongoCollection<TDocument> GetCollection<TDocument>(string collectionName = null, LinqProvider linqProvider = LinqProvider.V3)
         {
-            var client = DriverTestConfiguration.Linq3Client;
-            var database = client.GetDatabase(databaseName);
-            return database.GetCollection<TDocument>(collectionName);
+            return GetCollection<TDocument>(databaseName: null, collectionName, linqProvider);
+        }
+
+        protected IMongoCollection<TDocument> GetCollection<TDocument>(string databaseName, string collectionName, LinqProvider linqProvider = LinqProvider.V3)
+        {
+            var database = GetDatabase(databaseName, linqProvider);
+            return database.GetCollection<TDocument>(collectionName ?? DriverTestConfiguration.CollectionNamespace.CollectionName);
+        }
+
+        protected IMongoDatabase GetDatabase(string databaseName = null, LinqProvider linqProvider = LinqProvider.V3)
+        {
+            var client = DriverTestConfiguration.GetLinqClient(linqProvider);
+            return client.GetDatabase(databaseName ?? DriverTestConfiguration.DatabaseNamespace.DatabaseName);
         }
 
         protected static List<BsonDocument> Translate<TDocument, TResult>(IMongoCollection<TDocument> collection, IAggregateFluent<TResult> aggregate)
         {
             var pipelineDefinition = ((AggregateFluent<TDocument, TResult>)aggregate).Pipeline;
             var documentSerializer = collection.DocumentSerializer;
-            var serializerRegistry = BsonSerializer.SerializerRegistry;
             var linqProvider = collection.Database.Client.Settings.LinqProvider;
-            var renderedPipeline = pipelineDefinition.Render(documentSerializer, serializerRegistry, linqProvider);
-            return renderedPipeline.Documents.ToList();
+            return Translate(pipelineDefinition, documentSerializer, linqProvider);
         }
 
         // in this overload the collection argument is used only to infer the TDocument type
         protected List<BsonDocument> Translate<TDocument, TResult>(IMongoCollection<TDocument> collection, IQueryable<TResult> queryable)
         {
-            return Translate<TDocument, TResult>(queryable);
+            var linqProvider = collection.Database.Client.Settings.LinqProvider;
+            return Translate<TDocument, TResult>(queryable, linqProvider);
         }
 
-        protected List<BsonDocument> Translate<TDocument, TResult>(IQueryable<TResult> queryable)
+        // in this overload the collection argument is used only to infer the TDocument type
+        protected List<BsonDocument> Translate<TDocument, TResult>(IMongoCollection<TDocument> collection, IQueryable<TResult> queryable, out IBsonSerializer<TResult> outputSerializer)
         {
-            var provider = (MongoQueryProvider<TDocument>)queryable.Provider;
-            var executableQuery = ExpressionToExecutableQueryTranslator.Translate<TDocument, TResult>(provider, queryable.Expression);
-            var stages = executableQuery.Pipeline.Stages;
-            return stages.Select(s => s.Render().AsBsonDocument).ToList();
+            return Translate<TDocument, TResult>(queryable, out outputSerializer);
+        }
+
+        protected static List<BsonDocument> Translate<TResult>(IMongoDatabase database, IAggregateFluent<TResult> aggregate)
+        {
+            var pipelineDefinition = ((AggregateFluent<NoPipelineInput, TResult>)aggregate).Pipeline;
+            var linqProvider = database.Client.Settings.LinqProvider;
+            return Translate(pipelineDefinition, NoPipelineInputSerializer.Instance, linqProvider);
+        }
+
+        // in this overload the database argument is used only to infer the NoPipelineInput type
+        protected List<BsonDocument> Translate<TResult>(IMongoDatabase database, IQueryable<TResult> queryable)
+        {
+            return Translate<NoPipelineInput, TResult>(queryable);
+        }
+
+        protected List<BsonDocument> Translate<TDocument, TResult>(IQueryable<TResult> queryable, LinqProvider linqProvider = LinqProvider.V3)
+        {
+            return Translate<TDocument, TResult>(queryable, linqProvider, out _);
+        }
+
+        protected List<BsonDocument> Translate<TDocument, TResult>(IQueryable<TResult> queryable, out IBsonSerializer<TResult> outputSerializer)
+        {
+            return Translate<TDocument, TResult>(queryable, LinqProvider.V3, out outputSerializer);
+        }
+
+        protected List<BsonDocument> Translate<TDocument, TResult>(IQueryable<TResult> queryable, LinqProvider linqProvider, out IBsonSerializer<TResult> outputSerializer)
+        {
+            if (linqProvider == LinqProvider.V2)
+            {
+                var linq2QueryProvider = (MongoDB.Driver.Linq.Linq2Implementation.MongoQueryProviderImpl<TDocument>)queryable.Provider;
+                var executionModel = linq2QueryProvider.GetExecutionModel(queryable.Expression);
+                var executionModelType = executionModel.GetType();
+                var stagesPropertyInfo = executionModelType.GetProperty("Stages");
+                var stages = (IEnumerable<BsonDocument>)stagesPropertyInfo.GetValue(executionModel);
+                var outputSerializerPropertyInfo = executionModelType.GetProperty("OutputSerializer");
+                outputSerializer = (IBsonSerializer<TResult>)outputSerializerPropertyInfo.GetValue(executionModel);
+                return stages.ToList();
+            }
+            else
+            {
+                var linq3QueryProvider = (MongoQueryProvider<TDocument>)queryable.Provider;
+                var executableQuery = ExpressionToExecutableQueryTranslator.Translate<TDocument, TResult>(linq3QueryProvider, queryable.Expression);
+                var stages = executableQuery.Pipeline.Stages;
+                outputSerializer = (IBsonSerializer<TResult>)executableQuery.Pipeline.OutputSerializer;
+                return stages.Select(s => s.Render().AsBsonDocument).ToList();
+            }
+        }
+
+        protected static List<BsonDocument> Translate<TDocument, TResult>(
+            PipelineDefinition<TDocument, TResult> pipelineDefinition,
+            IBsonSerializer<TDocument> documentSerializer = null,
+            LinqProvider linqProvider = LinqProvider.V3)
+        {
+            var serializerRegistry = BsonSerializer.SerializerRegistry;
+            documentSerializer ??= serializerRegistry.GetSerializer<TDocument>();
+            var renderedPipeline = pipelineDefinition.Render(documentSerializer, serializerRegistry, linqProvider);
+            return renderedPipeline.Documents.ToList();
+        }
+
+        protected BsonDocument Translate<TDocument>(IMongoCollection<TDocument> collection, FilterDefinition<TDocument> filterDefinition)
+        {
+            var documentSerializer = collection.DocumentSerializer;
+            var serializerRegistry = BsonSerializer.SerializerRegistry;
+            var linqProvider = collection.Database.Client.Settings.LinqProvider;
+            return filterDefinition.Render(documentSerializer, serializerRegistry, linqProvider);
+        }
+
+        protected BsonDocument TranslateFindProjection<TDocument, TProjection>(
+            IMongoCollection<TDocument> collection,
+            IFindFluent<TDocument, TProjection> find,
+            LinqProvider linqProvider = LinqProvider.V3)
+        {
+            var findOptions = ((FindFluent<TDocument, TProjection>)find).Options;
+            var projection = findOptions.Projection;
+            var documentSerializer = collection.DocumentSerializer;
+            var serializerRegistry = BsonSerializer.SerializerRegistry;
+            var renderedProjection = projection.Render(documentSerializer, serializerRegistry, linqProvider);
+            return renderedProjection.Document;
         }
     }
 }

@@ -16,9 +16,8 @@
 using System;
 using FluentAssertions;
 using MongoDB.Bson;
-using MongoDB.Bson.TestHelpers.XunitExtensions;
+using MongoDB.TestHelpers.XunitExtensions;
 using MongoDB.Driver.Core.Clusters;
-using MongoDB.Driver.Core.Misc;
 using MongoDB.Driver.Core.TestHelpers;
 using MongoDB.Driver.Core.TestHelpers.XunitExtensions;
 using Xunit;
@@ -36,6 +35,7 @@ namespace MongoDB.Driver.Core.Operations
             subject.MessageEncoderSettings.Should().BeSameAs(_messageEncoderSettings);
 
             subject.Collation.Should().BeNull();
+            subject.Comment.Should().BeNull();
             subject.Filter.Should().BeNull();
             subject.Hint.Should().BeNull();
             subject.Limit.Should().NotHaveValue();
@@ -206,6 +206,30 @@ namespace MongoDB.Driver.Core.Operations
             var expectedResult = new BsonDocument
             {
                 { "count", _collectionNamespace.CollectionName }
+            };
+            result.Should().Be(expectedResult);
+        }
+
+        [Theory]
+        [ParameterAttributeData]
+        public void CreateCommand_should_return_expected_result_when_Comment_is_set(
+            [Values(null, "comment")]
+            string comment)
+        {
+            var subject = new CountOperation(_collectionNamespace, _messageEncoderSettings)
+            {
+                Comment = comment
+            };
+
+            var connectionDescription = OperationTestHelper.CreateConnectionDescription();
+            var session = OperationTestHelper.CreateSession();
+
+            var result = subject.CreateCommand(connectionDescription, session);
+
+            var expectedResult = new BsonDocument
+            {
+                { "count", _collectionNamespace.CollectionName },
+                { "comment", comment, comment != null }
             };
             result.Should().Be(expectedResult);
         }
@@ -413,7 +437,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(expectedResult);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result(
             [Values(false, true)]
@@ -428,7 +452,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_Collation_is_set(
             [Values(false, true)]
@@ -449,7 +473,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(caseSensitive ? 1 : 2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_throw_when_maxTime_is_exceeded(
             [Values(false, true)] bool async)
@@ -465,7 +489,7 @@ namespace MongoDB.Driver.Core.Operations
             }
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_Filter_is_set(
             [Values(false, true)]
@@ -483,7 +507,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(1);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_Hint_is_set(
             [Values(false, true)]
@@ -501,7 +525,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_Limit_is_set(
             [Values(null, 1L, 2L)]
@@ -521,7 +545,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(limit ?? 2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_MaxTime_is_set(
             [Values(null, 1000L)]
@@ -542,7 +566,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_ReadConcern_is_set(
             [Values(null, ReadConcernLevel.Local)]
@@ -563,7 +587,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(2);
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_return_expected_result_when_Skip_is_set(
             [Values(null, 1L, 2L)]
@@ -583,7 +607,7 @@ namespace MongoDB.Driver.Core.Operations
             result.Should().Be(2 - (skip ?? 0));
         }
 
-        [SkippableTheory]
+        [Theory]
         [ParameterAttributeData]
         public void Execute_should_send_session_id_when_supported(
             [Values(false, true)] bool async)

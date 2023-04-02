@@ -25,18 +25,20 @@ namespace MongoDB.Driver.Tests.JsonDrivenTests
     {
         // private fields
         private string _collectionName;
+        private CreateCollectionOptions<BsonDocument> _createCollectionOptions;
         private IClientSessionHandle _session;
 
         // public constructors
         public JsonDrivenCreateCollectionTest(IMongoDatabase database, Dictionary<string, object> objectMap)
             : base(database, objectMap)
         {
+            _createCollectionOptions = new CreateCollectionOptions<BsonDocument>();
         }
 
         // public methods
         public override void Arrange(BsonDocument document)
         {
-            JsonDrivenHelper.EnsureAllFieldsAreValid(document, "name", "object", "arguments");
+            JsonDrivenHelper.EnsureAllFieldsAreValid(document, "name", "object", "arguments", "result");
             base.Arrange(document);
         }
 
@@ -45,11 +47,11 @@ namespace MongoDB.Driver.Tests.JsonDrivenTests
         {
             if (_session == null)
             {
-                _database.CreateCollection(_collectionName, cancellationToken: cancellationToken);
+                _database.CreateCollection(_collectionName, options: _createCollectionOptions, cancellationToken: cancellationToken);
             }
             else
             {
-                _database.CreateCollection(_session, _collectionName, cancellationToken: cancellationToken);
+                _database.CreateCollection(_session, _collectionName, options: _createCollectionOptions, cancellationToken: cancellationToken);
             }
         }
 
@@ -57,11 +59,11 @@ namespace MongoDB.Driver.Tests.JsonDrivenTests
         {
             if (_session == null)
             {
-                await _database.CreateCollectionAsync(_collectionName, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await _database.CreateCollectionAsync(_collectionName, options: _createCollectionOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await _database.CreateCollectionAsync(_session, _collectionName, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await _database.CreateCollectionAsync(_session, _collectionName, options: _createCollectionOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -74,6 +76,12 @@ namespace MongoDB.Driver.Tests.JsonDrivenTests
                     return;
                 case "session":
                     _session = (IClientSessionHandle)_objectMap[value.AsString];
+                    return;
+                case "encryptedFields":
+                    _createCollectionOptions.EncryptedFields = value.AsBsonDocument;
+                    return;
+                case "validator":
+                    _createCollectionOptions.Validator = new BsonDocumentFilterDefinition<BsonDocument>(value.AsBsonDocument);
                     return;
             }
 

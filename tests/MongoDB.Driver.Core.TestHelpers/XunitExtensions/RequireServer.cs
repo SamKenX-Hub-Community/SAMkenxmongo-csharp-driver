@@ -19,6 +19,7 @@ using MongoDB.Bson;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Misc;
 using Xunit;
+using Xunit.Sdk;
 
 namespace MongoDB.Driver.Core.TestHelpers.XunitExtensions
 {
@@ -138,6 +139,19 @@ namespace MongoDB.Driver.Core.TestHelpers.XunitExtensions
             }
 
             throw new SkipException("Test skipped because serverless is " + (require ? "required" : "not required") + ".");
+        }
+
+        public RequireServer StableServer(bool stable = true)
+        {
+            var serverVersion = CoreTestConfiguration.ServerVersion;
+            var isStableServer = serverVersion.PreRelease == null;
+
+            if (isStableServer == stable)
+            {
+                return this;
+            }
+
+            throw new SkipException($"Test skipped because {(stable ? "GA" : "prerelease")} server version is expected, but found {serverVersion}.");
         }
 
         public RequireServer Supports(Feature feature)
@@ -327,6 +341,7 @@ namespace MongoDB.Driver.Core.TestHelpers.XunitExtensions
                     var actualClusterType = CoreTestConfiguration.Cluster.Description.Type;
                     var runOnClusterTypes = requirement.Value.AsBsonArray.Select(topology => MapTopologyToClusterType(topology.AsString)).ToList();
                     return runOnClusterTypes.Contains(actualClusterType);
+                case "csfle": return Feature.ClientSideEncryption.IsSupported(CoreTestConfiguration.MaxWireVersion);
                 default:
                     throw new FormatException($"Unrecognized requirement field: '{requirement.Name}'.");
             }

@@ -34,16 +34,11 @@ namespace MongoDB.Driver.Tests.Specifications.transactions
         }
 
         // public methods
-        [SkippableTheory]
+        [Theory]
         [ClassData(typeof(TestCaseFactory))]
         public void Run(JsonDrivenTestCase testCase)
         {
-            if (testCase.Name.Contains("mongos-unpin.json"))
-            {
-                throw new SkipException("Load balancer support not yet implemented.");
-            }
-
-            using (var runner = new UnifiedTestRunner())
+            using (var runner = new UnifiedTestRunner(loggingService: this))
             {
                 runner.Run(testCase);
             }
